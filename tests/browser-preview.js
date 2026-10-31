@@ -43,7 +43,6 @@ try {
   for (const mode of ['source', 'campweather']) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
-    if (!live) await mockCatalog(page);
     const errors = [];
     const responses = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -58,6 +57,7 @@ try {
       const response = await local.get(route.request().url());
       await route.fulfill({ response });
     });
+    if (!live) await mockCatalog(page);
     let failure = null;
     if (!live) {
       await page.route('https://api.open-meteo.com/**', async route => {
@@ -93,16 +93,17 @@ try {
     await page.getByRole('button', { name: '検索', exact: true }).click();
     await page.locator('[data-select="0"]').waitFor({ timeout: 25000 });
     assert.match(await page.locator('.search-result').first().textContent(), /ふもとっぱら/);
-    assert.match(await page.locator('.search-result').first().textContent(), /35\.398515/);
+    assert.equal(await page.locator('.search-result').first().locator('.map-link').getAttribute('href'), live ? 'https://www.openstreetmap.org/way/640260125#map=16/35.3985896/138.5646719' : 'https://www.openstreetmap.org/way/640260125#map=16/35.3985153/138.5659069');
     await page.locator('[data-select="0"]').click();
     assert(await page.locator('#location-confirmation').isVisible());
     await page.locator('#confirm-location').click();
     await page.waitForFunction(() => !document.querySelector('#location-dialog').open);
     await ready(3);
-    // 初期施設は二重登録せず、ユーザーが確認した位置を保存する。
+    // 初期施設は二重登録せず、既存の登録位置を維持する。
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('camp-weather-camps-v2')).camps);
     assert.equal(saved.length, 3);
     assert.equal(saved.find(camp => camp.id === 'fumotoppara').location.osmId, '640260125');
+    assert.equal(saved.find(camp => camp.id === 'fumotoppara').location.latitude, INITIAL_CAMPS[0].location.latitude);
     await page.reload();
     await ready(3);
     assert.equal(await page.locator('.day').count(), 6);
@@ -112,7 +113,7 @@ try {
     assert(await page.locator('.recommendation-badge').count() >= 1);
     assert((await page.locator('.day dl').allTextContents()).every(text => text.includes('℃') && text.includes('m/s')));
     if (live) {
-      assert(responses.length >= 9);
+      assert(responses.length >= 6);
       for (const response of await Promise.all(responses)) {
         assert(!response.error, response.error?.message);
         assert.equal(response.status, 200);

@@ -154,7 +154,9 @@ const registration = initRegistration({ getCamps: () => library.camps, locationD
   onSaved(change) {
     if (change.action === 'compare' || change.action === 'edit' && library.comparisonIds.includes(change.id)) refreshWeather({ reuse: true }); else render();
     favoritesView?.render();
-    $('#library-status').textContent = change.action === 'favorite' ? 'お気に入りに登録しました。比較に追加するまでは天気を取得しません。' : change.duplicate ? '登録済みの施設を比較に追加しました。施設名・位置は維持しています。' : '登録情報を更新しました。';
+    $('#library-status').textContent = change.action === 'favorite'
+      ? `お気に入りに登録しました。${library.comparisonIds.includes(change.id) ? '比較中の状態は変わりません。' : '比較に追加するまでは天気を取得しません。'}`
+      : change.duplicate ? '登録済みの施設を比較に追加しました。施設名・位置は維持しています。' : '登録情報を更新しました。';
   },
 });
 const openLocation = id => registration.open(id);

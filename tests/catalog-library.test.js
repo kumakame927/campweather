@@ -72,6 +72,8 @@ test('カタログAPIの任意クエリ・POSTは取得せず、提供失敗は5
 test('v1/v2の既存施設はすべてお気に入り・比較中として移行し、0件を復活させない', () => {
   for(const records of [INITIAL_CAMPS,{version:2,camps:INITIAL_CAMPS}]) { const state=restoreLibrary(records,null,null);assert.deepEqual(state.comparisonIds,state.camps.map(c=>c.id));assert.deepEqual(state.favoriteIds,state.comparisonIds); }
   assert.deepEqual(restoreLibrary({version:2,camps:[]},null,null),{camps:[],comparisonIds:[],favoriteIds:[]});
+  const partial = restoreLibrary({version:2,camps:INITIAL_CAMPS},{version:1,ids:['fumotoppara']},null);
+  assert.deepEqual(partial.comparisonIds,['fumotoppara']);assert.deepEqual(partial.favoriteIds,partial.camps.map(c=>c.id));
 });
 test('移行は既存キャンプ場の保存内容を一切書き換えず、独立キーだけを追加する', () => {
   const raw=JSON.stringify({version:2,camps:INITIAL_CAMPS,extra:'keep'}),storage=store({[STORAGE_KEY]:raw,[LEGACY_STORAGE_KEY]:'legacy'});
