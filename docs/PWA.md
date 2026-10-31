@@ -19,7 +19,7 @@
 2. 右上のメニューから「アプリをインストール」または「ホーム画面に追加」を選ぶ。
 3. 表示された確認画面で「インストール」または「追加」を選ぶ。
 
-端末やブラウザのバージョンによってメニューの位置・表記は異なる。アイコン・名称が古いホーム画面ショートカットは、先にその画面からデータを書き出してから追加し直す。
+端末やブラウザのバージョンによってメニューの位置・表記は異なる。iPhoneは追加済みアイコンの画像を端末内に保持する場合がある。画像URLのバージョンも更新するが、古い画像が残るときは、先に現在のホーム画面版からデータを書き出し、その後アイコンを削除してSafariから追加し直す。新しいホーム画面版で登録内容が見えない場合は、書き出したJSONを取り込む。
 
 ## 登録データを引き継ぐ
 
@@ -55,19 +55,19 @@ Open-Meteoの取得は `cache: no-store` でブラウザキャッシュを使わ
 
 ## アイコン
 
-ユーザー提供の青空・太陽・緑の山・黄色いテントのPNGを `public/harecamp-icon-source.png` に保存する。元ファイルの絵柄・縦横比を維持し、白い外周を余白付きで整理して正方形へ配置する。描き直し・生成AIによる別案への置換は行わない。
+`public/harecamp-icon-source.png` は、提供デザインの太陽・緑の山・湖・黄色いテントと配色・構図を維持し、背景を四辺・四隅まで補完した正方形のマスター画像。旧画像には白い外周と角丸が含まれていたため、余白・白い枠・画像自体の角丸を除去した。iOSによる角丸処理に任せ、PNGは透明部分のない正方形とする。
 
 - `public/icons/icon-192.png`：192×192
 - `public/icons/icon-512.png`：512×512
 - `public/icons/apple-touch-icon.png`：180×180、透過なし
 - `public/icons/favicon-32.png`：32×32
 
-Manifestのpurposeはany。元の構図を無理にマスクで切り取るmaskable画像は今回は追加しない。アイコン再生成は `python scripts/build-icons.py` または `npm run icons:build`（Pillowが必要）。通常のVercelビルドは生成済みPNGを配信するだけで、Pythonや画像ライブラリを追加導入しない。
+変換処理はマスターを直接リサイズし、白いキャンバス・余白・角丸マスクを追加しない。Manifestのpurposeはany。maskable画像は今回は追加しない。アイコン再生成は `python scripts/build-icons.py` または `npm run icons:build`（Pillowが必要）。通常のVercelビルドは生成済みPNGを配信するだけで、Pythonや画像ライブラリを追加導入しない。
 
 ## 確認方法
 
 - `npm test`：既存34項目、バックアップ8項目、名称・PWA設定2項目。
-- `npm run test:icons`：指定4サイズのPNG形式・寸法・実ファイルを確認（Pillow使用）。
+- `npm run test:icons`：マスターと指定4サイズのPNG形式・寸法・不透明度・四隅と四辺に白い枠がないことを確認（Pillow使用）。
 - `npm run test:pwa`：ビルド済みプレビューでChromium／WebKitの名称・Manifest・アイコン配信・キャッシュなし・オフライン案内・データ移行・保存・画面幅を確認。
 - `npm run test:install`：一時的な通常プロファイルのAndroid Chrome相当で、DevTools Protocolのインストール条件エラーが0件であることを確認。
 - 既存の登録操作・日程・気象庁・レイアウトテスト、および `node tests/registration-live.js` の実API操作確認も行う。
