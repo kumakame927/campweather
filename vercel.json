@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/open-meteo/v1/forecast",
+      "destination": "https://api.open-meteo.com/v1/forecast"
+    },
+    {
+      "source": "/api/nominatim/search",
+      "destination": "https://nominatim.openstreetmap.org/search"
+    }
+  ]
+}

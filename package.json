@@ -1,0 +1,21 @@
+{
+  "name": "campweather",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node tests/weather.test.js",
+    "test:browser": "node tests/browser-preview.js",
+    "test:network": "node tests/network-preview.cjs",
+    "build:vercel": "VITE_API_TRANSPORT=same-origin vite build",
+    "test:vercel": "node tests/vercel-preview.js"
+  },
+  "devDependencies": {
+    "https-proxy-agent": "^7.0.6",
+    "playwright": "^1.56.1",
+    "vite": "^6.4.1"
+  }
+}
