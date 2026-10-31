@@ -1,3 +1,5 @@
+import { initPwa } from './pwa.js';
+import { initBackup } from './backup.js';
 import { initRegistration } from './registration.js';
 import { initJma, renderJma, japanTimestamp } from './jma.js';
 import { forecastDays, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol, fetchJson } from './weather.js';
@@ -66,7 +68,7 @@ function render() {
     rec.innerHTML = `<div><p class="eyebrow">${eligible.length === 1 ? '予報を取得できたキャンプ場' : leaders.length > 1 ? 'おすすめ候補 · 同条件' : '選択日程のおすすめ候補'}</p><h2 id="recommendation-title">${leaders.map(camp => escapeHtml(camp.name)).join(' / ')}</h2><p>${eligible.length === 1 ? '取得できた予報は1施設のみです。ほかの施設との比較はできていません。' : `${eligible.length}施設で比較。${trip.nights ? '撤収日' : '当日'}の降水確率を最優先に選んでいます。`}${eligible.length < camps.length ? ` 未取得・未確認の${camps.length - eligible.length}施設は対象外です。` : ''}</p><p class="recommendation-conditions">日程中の最大風速 ${number(wind)} m/s · 最低気温 ${number(Math.min(...forecastDays(best.forecast).map(day => day.low)))} ℃</p></div><div class="recommendation-rain"><span>${trip.nights ? '撤収日' : '当日'}の降水確率</span><strong>${number(forecastDays(best.forecast).at(-1).rain)}<small>%</small></strong></div>`;
   } else {
     rec.classList.remove('has-recommendation');
-    rec.innerHTML = `<div><p class="eyebrow">WEEKEND COMPARISON</p><h2 id="recommendation-title">${camps.length === 0 ? 'キャンプ場を追加してください' : rangeError ? '日程を確認してください' : refreshing ? '選択日程の予報を取得しています' : 'おすすめは予報取得後に表示します'}</h2><p>${camps.length === 0 ? 'キャンプ場名・住所・地図から、比較したい場所を追加できます。' : rangeError ? '予報取得可能期間内の日程を選ぶと比較を再開します。' : refreshing ? '登録済みのキャンプ場の予報を確認中です。' : '取得できない施設は順位に含めません。'}</p></div>`;
+    rec.innerHTML = `<div><p class="eyebrow">選択日程の天気比較</p><h2 id="recommendation-title">${camps.length === 0 ? 'キャンプ場を追加してください' : rangeError ? '日程を確認してください' : refreshing ? '選択日程の予報を取得しています' : 'おすすめは予報取得後に表示します'}</h2><p>${camps.length === 0 ? 'キャンプ場名・住所・地図から、比較したい場所を追加できます。' : rangeError ? '予報取得可能期間内の日程を選ぶと比較を再開します。' : refreshing ? '登録済みのキャンプ場の予報を確認中です。' : '取得できない施設は順位に含めません。'}</p></div>`;
   }
   const located = camps.filter(camp => camp.location).length;
   const failed = [...forecasts.values()].filter(result => result.state === 'error').length;
@@ -170,5 +172,7 @@ $('#confirm-delete').addEventListener('click', () => {
   refreshWeather();
   $('#add-camp').focus();
 });
+initPwa({ onReconnect: () => { if (!refreshing) refreshWeather(); } });
+initBackup({ getCamps: () => camps, getTrip: () => trip });
 initJma({ grid, getCamps: () => camps, getTrip: () => trip });
 refreshWeather();

@@ -4,20 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#244d40" />
-    <meta name="description" content="日帰りから2泊3日まで、撤収日の降水確率・気温・風速でキャンプ場を比較できます。" />
-    <title>CAMP NOTE | キャンプ日程の天気比較</title>
-    <link rel="icon" type="image/svg+xml" href="./src/favicon.svg" />
+    <meta name="description" content="今週末、晴れるキャンプ場はどこ？ 撤収日の降水確率・気温・風速でキャンプ場を比較。" />
+    <title>晴れキャン | 今週末、晴れるキャンプ場はどこ？</title>
+    <meta name="application-name" content="晴れキャン" />
+    <meta name="apple-mobile-web-app-title" content="晴れキャン" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="stylesheet" href="./node_modules/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="./src/style.css" />
     <script type="module" src="./src/bootstrap.js"></script>
   </head>
   <body>
-    <header class="header"><a class="brand" href="./"><span aria-hidden="true">△</span> CAMP NOTE</a><span class="header-caption">キャンプ日程の天気比較</span></header>
+    <header class="header"><a class="brand" href="./">晴れキャン</a><span class="header-caption">キャンプ日程の天気比較</span></header>
     <main>
+      <p id="offline-notice" class="notice" role="status" hidden>オフラインです。表示中の予報はデータ取得日時時点の情報です。最新の天気予報は取得できません。</p>
       <p id="startup-error" class="notice" role="alert" hidden></p>
       <noscript><p class="notice">キャンプ場の表示と検索にはJavaScriptが必要です。ブラウザの設定で有効にしてください。</p></noscript>
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">CAMP WEATHER</p><h1 id="page-title"><span style="display:inline-block">撤収日、雨の少ない</span><span style="display:inline-block">キャンプ場へ。</span></h1>
+        <p class="eyebrow">晴れキャン</p><h1 id="page-title">今週末、晴れるキャンプ場はどこ？</h1>
         <p class="intro-text">選んだ日程の天気・降水確率・気温・風速をまとめて比較。</p>
         <div class="weekend-toolbar"><div><span class="period-label">キャンプ日程 <span class="timezone">日本時間</span></span><h2 id="weekend-period"></h2></div><button id="refresh-weather" class="button secondary" type="button">予報を更新</button></div>
         <div class="trip-controls"><label for="trip-start">開始日<input id="trip-start" type="date" required></label><label for="trip-nights">泊数<select id="trip-nights"><option value="0">日帰り</option><option value="1">1泊2日</option><option value="2">2泊3日</option></select></label><button id="reset-weekend" class="button secondary" type="button">直近の土日</button></div>
@@ -31,9 +39,17 @@
         <div id="camp-grid" class="camp-grid"></div><div id="empty-camps" class="empty-camps" hidden><h3>キャンプ場が登録されていません</h3><p>比較したいキャンプ場を追加してください。</p><button id="empty-add-camp" class="button primary" type="button">＋ キャンプ場を追加</button></div>
       </section>
       <details class="help"><summary>予報・おすすめの見方</summary><ul><li>Open-Meteoの降水確率は1日の最大値、風速は1日の最大風速（m/s）です。気温は最高・最低気温（℃）です。</li><li>おすすめは予報の取得できた施設間の相対比較です。撤収日（日帰りでは当日）の降水確率、日程中の最大風速、最終日以外の最大降水確率の順で比較します。気温は数値で確認できます。予報が一部でも不足する施設は比較対象に含めません。</li><li>Open-Meteoの「データ取得日時」はAPIの応答を受信した時刻です。モデルの更新日時ではありません。気象庁の「予報発表日時」とは区別して表示します。表示中は30分ごとに自動更新します。予報が取得できない場合は架空の値で補いません。</li><li>気象庁の参考予報はカードの欄を開くと取得します。実際の予報区域名・対象時間帯・発表日時を表示し、独自の日単位確率を計算しません。地域全体の参考情報で、おすすめ順位には使いません。</li><li>住所・座標は検索候補や地図上の地点を確認して登録します。施設名だけで自動的に位置を確定しません。</li></ul></details>
+      <details id="data-settings" class="help"><summary>ホーム画面追加・データの引き継ぎ</summary>
+        <p id="pwa-mode"></p><p>iPhone：Safariの共有メニュー →「ホーム画面に追加」→「追加」。Android：Chromeのメニュー →「アプリをインストール」または「ホーム画面に追加」。</p>
+        <p>オンラインで利用するアプリです。オフラインでは最新の予報を取得できません。</p>
+        <p>Safariとホーム画面版では保存データが分かれる場合があります。元の画面でバックアップを保存し、移行先で同じファイルを取り込んでください。登録キャンプ場と日程を移せます。</p>
+        <div class="backup-actions"><button id="export-data" class="button secondary" type="button">データを書き出す</button><label class="backup-file" for="import-data">バックアップを取り込む<input id="import-data" type="file" accept="application/json,.json" aria-describedby="backup-help"></label></div>
+        <p id="backup-help">取り込み前に内容と上書きを確認します。JSON形式・1MB以下・500施設まで。ファイルは端末内で処理し、サーバーへ送りません。</p><p id="backup-status" class="status" role="status"></p>
+      </details>
       <p class="notice" id="storage-notice" role="status" hidden></p>
     </main>
     <footer><p>予報：<a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · 参考予報：<a href="https://www.jma.go.jp/bosai/forecast/" target="_blank" rel="noopener noreferrer">気象庁</a>（公開データを選択・整形） · 場所検索：Nominatim / <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p><p>山間部の天気は変わりやすいため、出発前に最新の気象情報と施設の営業状況をご確認ください。</p></footer>
+    <dialog id="import-dialog" aria-labelledby="import-title"><h2 id="import-title">登録データを上書きしますか？</h2><p id="import-preview"></p><p>現在の登録キャンプ場と日程を、ファイルの内容に置き換えます。必要なら先に現在のデータを書き出してください。出発地点はファイルに含まれる場合だけ取り込みます。</p><div class="dialog-actions"><button id="cancel-import" class="button secondary" type="button">キャンセル</button><button id="confirm-import" class="button danger" type="button">上書きして取り込む</button></div></dialog>
     <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">キャンプ場を削除しますか？</h2><p><strong id="delete-name"></strong>を比較一覧から削除します。</p><p>必要になった場合は再び追加できます。</p><div class="dialog-actions"><button id="cancel-delete" class="button secondary" type="button">キャンセル</button><button id="confirm-delete" class="button danger" type="button">削除する</button></div></dialog>
     <dialog id="location-dialog" aria-labelledby="location-title">
       <div class="dialog-heading"><h2 id="location-title">キャンプ場を追加</h2><button id="close-dialog" class="close-button" aria-label="閉じる" type="button">×</button></div>

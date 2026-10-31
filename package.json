@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/weather.test.js && node tests/jma.test.js && node tests/registration.test.js",
+    "test": "node tests/weather.test.js && node tests/jma.test.js && node tests/registration.test.js && node tests/backup.test.js && node tests/pwa-config.test.js",
     "test:browser": "node tests/browser-preview.js",
     "test:network": "node tests/network-preview.cjs",
     "build:vercel": "VITE_API_TRANSPORT=same-origin vite build",
@@ -15,7 +15,11 @@
     "test:trip": "node tests/trip-browser.js",
     "test:layout": "node tests/layout-browser.js",
     "test:jma": "node tests/jma-browser.js",
-    "test:registration": "node tests/registration-browser.js"
+    "test:registration": "node tests/registration-browser.js",
+    "test:pwa": "node tests/pwa-browser.js",
+    "test:icons": "python tests/check-icons.py",
+    "test:install": "node tests/installability-browser.js",
+    "icons:build": "python scripts/build-icons.py"
   },
   "devDependencies": {
     "https-proxy-agent": "^7.0.6",

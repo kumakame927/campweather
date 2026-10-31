@@ -106,7 +106,7 @@ export async function fetchJson(url, { signal, timeout = 15000 } = {}) {
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
   const fail = (message, code, status) => new ApiError(message, { ...target, code, status });
   try {
-    const response = await fetch(target.url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    const response = await fetch(target.url, { cache: 'no-store', signal: controller.signal, headers: { Accept: 'application/json' } });
     if (!response.ok) {
       if (response.status === 429) throw fail('利用回数の制限中です（HTTP 429）。時間をおいて再試行してください。', 'rate-limit', 429);
       if (response.status === 403) throw fail('APIへの接続が拒否されました（HTTP 403）。ネットワークのアクセス制限やサービスの利用条件をご確認ください。', 'forbidden', 403);
@@ -129,7 +129,7 @@ export async function fetchJson(url, { signal, timeout = 15000 } = {}) {
     else if (error instanceof TypeError) failure = globalThis.navigator?.onLine === false ?
       fail('オフラインです。ネット接続を確認して再試行してください。', 'offline') :
       fail('ブラウザがAPIの応答を受信できませんでした。ネット接続・プレビューの通信許可・CORSを確認してください（原因は未確定）。', 'network');
-    console.error('[Camp Weather API]', { service: target.service, endpoint: target.endpoint, code: failure.code ?? 'unexpected', status: failure.status ?? null, message: failure.message });
+    console.error('[晴れキャン API]', { service: target.service, endpoint: target.endpoint, code: failure.code ?? 'unexpected', status: failure.status ?? null, message: failure.message });
     throw failure;
   } finally {
     clearTimeout(timer);
