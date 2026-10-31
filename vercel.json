@@ -13,5 +13,16 @@
       "source": "/api/nominatim/search",
       "destination": "https://nominatim.openstreetmap.org/search"
     }
+  ],
+  "headers": [
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }

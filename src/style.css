@@ -63,3 +63,6 @@
 @media(max-width:600px){#location-map{height:290px}.input-help{font-size:12px}.search-modes button{font-size:11px;min-width:0;padding:7px 4px}#map-search-results{max-height:210px}}
 
 #map-search-status:empty,#map-tile-status:empty,#registration-save-status:empty{display:none}
+
+.backup-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}.backup-file{display:grid;gap:8px;min-width:0;max-width:100%;font-weight:600}.backup-file input{display:block;font:inherit;max-width:100%;min-width:0;width:100%;min-height:44px}#backup-help{font-size:11px;line-height:1.9}#offline-notice{margin-bottom:0}#import-dialog p{overflow-wrap:anywhere}
+@media(max-width:600px){.backup-actions>*{width:100%}.brand{letter-spacing:.04em}.intro h1{max-width:350px}}

@@ -17,7 +17,7 @@ export function forecastHandler(fetchForecast = getForecast) {
       res.setHeader('Vercel-CDN-Cache-Control', `public, s-maxage=${remaining}`);
       res.end(JSON.stringify(value));
     } catch (error) {
-      console.error('[Camp Note JMA]', error.message);
+      console.error('[晴れキャン JMA]', error.message);
       res.statusCode = 502;
       res.end(JSON.stringify({ error: `気象庁の参考予報を取得できませんでした。${error.message} Open-Meteoの表示は引き続き利用できます。` }));
     }
