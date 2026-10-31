@@ -53,7 +53,7 @@
         <form id="departure-form"><label for="departure-query">住所・駅名・地名から探す</label><div class="search-row"><input id="departure-query" type="search" maxlength="120" required placeholder="例：東京駅"><button id="departure-submit" class="button secondary" type="submit">検索</button></div></form><p id="departure-status" class="status" role="status"></p><div id="departure-results"></div>
         <p id="departure-selection" class="date-policy"></p><label for="departure-name">保存名（自宅・駅名など）<input id="departure-name" maxlength="300" required placeholder="例：いつもの出発駅"></label>
         <div class="settings-actions"><button id="save-departure" class="button primary" type="button" disabled>この出発地点を保存</button><button id="remove-departure" class="button secondary" type="button">保存地点を削除</button></div>
-        <p class="date-policy">保存先はこのブラウザだけです。現在地は許可ボタンを押したときだけ取得し、自動では保存しません。経路結果はlocalStorageへ保存しません。</p><h2>経路比較について</h2><p class="date-policy">経路APIは管理者の設定・課金承認後に利用できます。取得できない施設は「取得不可」と表示し、推測の時間や距離を表示しません。天気のおすすめは引き続き撤収日の降水確率を優先します。</p><p><a href="./legal.html" target="_blank" rel="noopener noreferrer">利用条件・プライバシーについて</a></p>
+        <p class="date-policy">保存先はこのブラウザだけです。現在地は許可ボタンを押したときだけ取得し、自動では保存しません。経路結果はlocalStorageへ保存しません。</p><h2>経路比較について</h2><p class="date-policy">利用できる経路APIを設定していない場合は「経路情報を取得できません」と表示します。出発地点の保存と天気比較は利用できます。取得できない施設は「取得不可」と表示し、推測の時間や距離を表示しません。天気のおすすめは引き続き撤収日の降水確率を優先します。</p><p><a href="./legal.html" target="_blank" rel="noopener noreferrer">利用条件・プライバシーについて</a></p>
       </section>
       <p class="notice" id="storage-notice" role="status" hidden></p>
     </main>

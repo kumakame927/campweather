@@ -7,7 +7,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ enabled: routeConfig(process.env), provider: 'Google Maps', message: routeConfig(process.env) ? '利用できます。' : '経路APIは管理者の設定・課金承認待ちです。' }));
+    const enabled = routeConfig(process.env);
+    res.end(JSON.stringify({ enabled, provider: enabled ? 'Google Maps' : null, message: enabled ? '利用できます。' : '経路情報を取得できません。経路APIは未設定です。' }));
     return;
   }
   if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'GET, POST'); res.end(); return; }

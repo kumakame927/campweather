@@ -65,8 +65,8 @@ export function initAccess({ getCamps, getForecast, getTrip }) {
       const response = await fetch(endpoint(), { headers: { Accept: 'application/json' } });
       if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error();
       const status = await response.json();
-      $('#route-setup-status').textContent = status.enabled ? '経路APIの設定済みです。比較操作で取得を開始します。' : '経路APIは管理者の設定・課金承認待ちです。所要時間・距離はまだ取得できません。';
-    } catch { $('#route-setup-status').textContent = '経路比較にはVercelのサーバー機能が必要です。このプレビューでは接続できません。'; }
+      $('#route-setup-status').textContent = status.enabled ? '経路APIの設定済みです。比較操作で取得を開始します。' : '経路情報を取得できません。利用できる経路APIが未設定です。天気比較と出発地点の保存は利用できます。';
+    } catch { $('#route-setup-status').textContent = '経路情報を取得できません。経路比較用サーバーに接続できません。架空の時間・距離は表示しません。'; }
   }
   async function compare() {
     clearTimeout(autoTimer);

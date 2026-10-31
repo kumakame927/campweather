@@ -24,7 +24,7 @@ try {
   await page.route(url => url.pathname === '/api/routes', async route => {
     if (route.request().method() === 'GET') { await route.fulfill({ json: { enabled } }); return; }
     const body = route.request().postDataJSON(); routeCalls.push(body);
-    if (!enabled) { await route.fulfill({ status: 503, json: { code: 'NOT_CONFIGURED', error: '経路APIは課金承認と設定待ちです。' } }); return; }
+    if (!enabled) { await route.fulfill({ status: 503, json: { code: 'NOT_CONFIGURED', error: '経路情報を取得できません。経路APIは未設定です。' } }); return; }
     await route.fulfill({ json: { provider: 'Google Maps', routes: body.destinations.map(camp => camp.id === 'nikoniko' ? { id: camp.id, available: false, reason: '経路を取得できませんでした。' } : { id: camp.id, available: true, durationSeconds: camp.id === 'fumotoppara' ? (body.mode === 'DRIVE' ? 7200 : 10800) : 3600, distanceMeters: camp.id === 'fumotoppara' ? 150000 : 80000 }) } });
   });
   await page.goto(process.env.CAMP_PREVIEW_URL ?? 'http://127.0.0.1:5173/');
@@ -65,7 +65,7 @@ try {
   await page.locator('#current-origin-button').click(); await page.waitForFunction(() => document.querySelector('#selected-origin').textContent.includes('現在地'));
   assert.equal(await page.evaluate(() => window.geoCalls), 1);
   enabled = false;
-  await page.locator('#route-compare').click(); await page.waitForFunction(() => document.querySelector('#route-status').textContent.includes('承認'));
+  await page.locator('#route-compare').click(); await page.waitForFunction(() => document.querySelector('#route-status').textContent.includes('未設定'));
   assert.equal(await page.locator('.access-card dd').filter({ hasText: '取得不可' }).count(), 6);
   await page.locator('#origin-source').selectOption('search'); await page.locator('#origin-query').fill('東京駅'); await page.locator('#origin-submit').click(); await page.locator('#origin-results button').click();
   assert.match(await page.locator('#selected-origin').textContent(), /東京駅/);

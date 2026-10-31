@@ -73,7 +73,7 @@ export async function reserveUsage(env, fetchImpl, elements, ip, now) {
   return payload.result;
 }
 export async function computeRoutes(body, { env = process.env, fetchImpl = fetch, ip = 'unknown', now = Date.now() } = {}) {
-  const unavailable = { status: 503, body: { code: 'NOT_CONFIGURED', error: '経路比較は管理者のAPI・課金承認・利用上限設定待ちです。所要時間と距離はまだ取得していません。' } };
+  const unavailable = { status: 503, body: { code: 'NOT_CONFIGURED', error: '経路情報を取得できません。利用できる経路APIが未設定です。所要時間と距離は表示していません。' } };
   if (!routeConfig(env)) return unavailable;
   try { validateRouteRequest(body, now); }
   catch (error) { return { status: 400, body: { code: 'INVALID_REQUEST', error: error.message } }; }

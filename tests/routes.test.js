@@ -11,7 +11,10 @@ const ok = value => ({ ok: true, json: async () => value });
 test('課金未承認・キーや共有制限の未設定ではGoogleを一切呼ばない', async () => {
   let calls = 0;
   const fetchImpl = async () => { calls++; throw new Error('must not fetch'); };
-  assert.equal((await computeRoutes(input, { env: {}, fetchImpl })).status, 503);
+  const disabled = await computeRoutes(input, { env: {}, fetchImpl });
+  assert.equal(disabled.status, 503);
+  assert.match(disabled.body.error, /^経路情報を取得できません/);
+  assert.equal(disabled.body.routes, undefined);
   assert.equal((await computeRoutes(input, { env: { ...env, ROUTES_ENABLED: 'false' }, fetchImpl })).status, 503);
   assert.equal((await computeRoutes(input, { env: { ...env, UPSTASH_REDIS_REST_TOKEN: '' }, fetchImpl })).status, 503);
   assert.equal(calls, 0);
