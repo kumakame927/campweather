@@ -24,7 +24,7 @@ try {
   });
   await page.route(url => url.pathname.endsWith('/search'), route => route.fulfill({ json: [{ name: '番地の検索結果', display_name: '千葉県君津市折木沢1306', lat: '35.215901', lon: '140.106592', osm_type: 'node', osm_id: 123499 }] }));
   await page.route('https://tile.openstreetmap.org/**', route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lxkAAAAASUVORK5CYII=', 'base64') }));
-  const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設登録 · ${n}施設の予報を比較可能`, count);
+  const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設を比較中 · ${n}施設の予報を比較可能`, count);
   await page.goto(process.env.CAMP_PREVIEW_URL ?? 'http://127.0.0.1:5173/');
   await ready(4);
   assert.equal(await page.locator('#trip-start').inputValue(), nextWeekend().saturday);
@@ -55,15 +55,20 @@ try {
   assert.equal(requests.length, before);
   assert.equal(await page.locator('.recommendation-badge').count(), 0);
   await page.locator('#reset-weekend').click(); await ready(4);
-  await page.locator('[data-delete="fumotoppara"]').click(); await page.locator('#cancel-delete').click();
+  await page.locator('#open-favorites').click();
+  await page.locator('[data-forget="fumotoppara"]').click(); await page.locator('#cancel-delete').click();
   assert.equal(await page.locator('.camp-card').count(), 4);
-  await page.locator('[data-delete="fumotoppara"]').click(); await page.locator('#confirm-delete').click(); await ready(3);
+  await page.locator('[data-forget="fumotoppara"]').click(); await page.locator('#confirm-delete').click();
+  await page.locator('#close-favorites').click(); await ready(3);
   await page.reload(); await ready(3);
   assert.equal(await page.locator('[data-camp-id="fumotoppara"]').count(), 0);
   assert.match(await page.evaluate(() => localStorage.getItem('camp-weather-camps-v1')), /以前の登録施設/);
   while (await page.locator('.camp-card').count()) {
     const count = await page.locator('.camp-card').count();
-    await page.locator('[data-delete]').first().click(); await page.locator('#confirm-delete').click(); await ready(count - 1);
+    const id = await page.locator('.camp-card').first().getAttribute('data-camp-id');
+    await page.locator('#open-favorites').click();
+    await page.locator(`[data-forget="${id}"]`).click(); await page.locator('#confirm-delete').click();
+    await page.locator('#close-favorites').click(); await ready(count - 1);
   }
   await page.reload(); await ready(0);
   assert(await page.locator('#empty-camps').isVisible());

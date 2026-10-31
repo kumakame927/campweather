@@ -1,0 +1,30 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-31T16:57:06Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 4105493143,
+  "lat": 36.7515948,
+  "lon": 139.4509786,
+  "tags": {
+    "addr:block_number": "2485",
+    "addr:city": "日光市",
+    "addr:country": "JP",
+    "addr:full": "栃木県日光市中宮祠2485",
+    "addr:neighbourhood": "中宮祠",
+    "addr:province": "栃木県",
+    "name": "菖蒲ヶ浜キャンプ場",
+    "name:en": "Shobugahama Camp Site",
+    "phone": "0288-55-0227",
+    "tourism": "camp_site"
+  }
+}
+
+  ]
+}

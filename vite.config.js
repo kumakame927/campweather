@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { catalogHandler } from './api/camp-catalog.js';
+import { createCatalogService } from './server/catalog-service.js';
 import areaHandler from './api/jma-area.js';
 import { forecastHandler } from './api/jma-forecast.js';
 import { createForecastService, getJson } from './server/jma-forecast.js';
@@ -21,9 +23,11 @@ const apiProxy = Object.fromEntries([
   },
 }]));
 const forecast = forecastHandler(createForecastService({ fetchJson: url => getJson(url, agent) }));
+const catalog = catalogHandler(createCatalogService({ remote: false }));
 function installJma(server) {
   server.middlewares.use(async (req, res, next) => {
     const path = req.url.split('?')[0];
+    if (path === '/api/camp-catalog') return catalog(req, res);
     if (path === '/api/jma-area') return areaHandler(req, res);
     if (path === '/api/jma-forecast') return forecast(req, res);
     next();

@@ -1,3 +1,4 @@
+import { VERIFIED_PLACES } from '../src/verified-places.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nextWeekend, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, fetchJson } from '../src/weather.js';
@@ -113,9 +114,8 @@ test('施設名と無関係の検索結果を一致と判定しない', () => {
   assert(nameMatches('ふもとっぱら', 'ふもとっぱらキャンプ場'));
   assert(nameMatches('ニコニコキャンプ', 'にこにこキャンプ'));
 });
-test('通信成功時の補足候補は出典確認済みの座標を使い、再読み込み用に復元可能', async t => {
-  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => [] }));
-  const found = await searchLocations('亀山湖オートキャンプ場', new AbortController().signal);
+test('過去に登録した補足候補の出典・座標は検索方式変更後も復元可能', () => {
+  const found = VERIFIED_PLACES;
   assert.equal(found.length, 1);
   assert.equal(found[0].location.latitude, 35.215901);
   assert.equal(found[0].location.sourceUrl, 'https://www.nap-camp.com/chiba/11955');

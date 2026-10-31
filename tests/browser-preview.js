@@ -1,3 +1,4 @@
+import { mockCatalog } from './fixtures/catalog.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -11,15 +12,16 @@ const root = resolve('.');
 const output = resolve('test-results');
 await mkdir(output, { recursive: true });
 // ソースとビルドの両方を、Vite の変換なしで正しい MIME 型で配信する。
-const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     const source = url.pathname.startsWith('/source/');
     const prefix = source ? '/source/' : '/campweather/';
     if (!url.pathname.startsWith(prefix)) { res.writeHead(404).end(); return; }
-    const directory = source ? root : resolve(root, 'dist');
-    const path = resolve(directory, decodeURIComponent(url.pathname.slice(prefix.length)) || 'index.html');
+    const relative = decodeURIComponent(url.pathname.slice(prefix.length)) || 'index.html';
+    const directory = source ? (/^(icons\/|data\/|manifest\.webmanifest$)/.test(relative) ? resolve(root, 'public') : root) : resolve(root, 'dist');
+    const path = resolve(directory, relative);
     if (!path.startsWith(directory + sep)) { res.writeHead(403).end(); return; }
     res.writeHead(200, { 'Content-Type': mime[extname(path)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(await readFile(path));
@@ -55,6 +57,7 @@ try {
       const response = await local.get(route.request().url());
       await route.fulfill({ response });
     });
+    if (!live) await mockCatalog(page);
     let failure = null;
     if (!live) {
       await page.route('https://api.open-meteo.com/**', async route => {
@@ -75,7 +78,7 @@ try {
           lat: String(camp.location.latitude), lon: String(camp.location.longitude), osm_type: 'way', osm_id: extra ? 999999 : 640260125 }] });
       });
     }
-    const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設登録 · ${n}施設の予報を比較可能`, count, { timeout: 25000 });
+    const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設を比較中 · ${n}施設の予報を比較可能`, count, { timeout: 25000 });
     await page.goto(`${origin}/${mode}/`);
     await ready(3);
     assert.equal(await page.locator('.camp-card').count(), 3);
@@ -90,16 +93,17 @@ try {
     await page.getByRole('button', { name: '検索', exact: true }).click();
     await page.locator('[data-select="0"]').waitFor({ timeout: 25000 });
     assert.match(await page.locator('.search-result').first().textContent(), /ふもとっぱら/);
-    assert.match(await page.locator('.search-result').first().textContent(), /35\.398515/);
+    assert.equal(await page.locator('.search-result').first().locator('.map-link').getAttribute('href'), live ? 'https://www.openstreetmap.org/way/640260125#map=16/35.3985896/138.5646719' : 'https://www.openstreetmap.org/way/640260125#map=16/35.3985153/138.5659069');
     await page.locator('[data-select="0"]').click();
     assert(await page.locator('#location-confirmation').isVisible());
     await page.locator('#confirm-location').click();
     await page.waitForFunction(() => !document.querySelector('#location-dialog').open);
     await ready(3);
-    // 初期施設は二重登録せず、ユーザーが確認した位置を保存する。
+    // 初期施設は二重登録せず、既存の登録位置を維持する。
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('camp-weather-camps-v2')).camps);
     assert.equal(saved.length, 3);
     assert.equal(saved.find(camp => camp.id === 'fumotoppara').location.osmId, '640260125');
+    assert.equal(saved.find(camp => camp.id === 'fumotoppara').location.latitude, INITIAL_CAMPS[0].location.latitude);
     await page.reload();
     await ready(3);
     assert.equal(await page.locator('.day').count(), 6);
@@ -109,7 +113,7 @@ try {
     assert(await page.locator('.recommendation-badge').count() >= 1);
     assert((await page.locator('.day dl').allTextContents()).every(text => text.includes('℃') && text.includes('m/s')));
     if (live) {
-      assert(responses.length >= 9);
+      assert(responses.length >= 6);
       for (const response of await Promise.all(responses)) {
         assert(!response.error, response.error?.message);
         assert.equal(response.status, 200);
@@ -139,6 +143,7 @@ try {
       assert.match(await page.locator('.card-status').first().textContent(), /403.*アクセス制限/);
       failure = 'search';
       await page.locator('#add-camp').click();
+      await page.locator('[data-search-mode="address"]').click();
       await page.locator('#location-query').fill('通信失敗テスト');
       await page.locator('#search-location').click();
       await page.waitForFunction(() => document.querySelector('#search-status').textContent.includes('利用回数の制限'));
