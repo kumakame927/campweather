@@ -122,3 +122,11 @@ node tests/network-preview.cjs
 ## スマートフォンの日程入力
 
 600px以下では開始日・泊数を1列、各入力を幅100%にします。Gridの列・ラベル・入力の `min-width: 0` とSafariの日付入力の内在幅対策を適用しています。`npm run test:layout` はChromiumとWebKitで320〜600pxの縦配置、1024pxの横配置、重なりと横スクロールがないことを確認します。Playwrightブラウザと実行ライブラリが必要です。`CHROMIUM_EXECUTABLE_PATH` / `WEBKIT_EXECUTABLE_PATH` で既存のブラウザ実行ファイルを指定できます。
+
+## 気象庁の参考予報（Vercel）
+
+各カードの「気象庁の参考予報」を開くと、実際の予報区域名・選択日の天気・発表済み降水確率・発表日時を表示します。Open-Meteoは主予報のままで、撤収日優先のランキングは変更しません。APIキーや有料サービスの設定は不要です。Vercelの既存ビルド設定のまま `api/jma-area.js` / `api/jma-forecast.js` が動作します。静的GitHub Pages単体ではこの参考機能のサーバーが使えません。
+
+短期の降水確率は日本時間の6時間ごと、週間は日単位の気象庁発表値をそのまま表示します。キャンプ場のピンポイント予報ではありません。Open-Meteoはモデル更新日時ではなく「データ取得日時」、気象庁は「予報発表日時」と「データ取得日時」を分けて表示します。
+
+[取得方法・利用規約・区域判定・更新頻度・キャッシュ・制約](docs/JMA-REFERENCE.md)を参照してください。`npm test`、`npm run test:jma`、実APIのブラウザ確認 `node tests/jma-browser.js --real` を用意しています。テスト用予報は `tests/` に隔離しています。アクセス比較機能の `feat/access-comparison` ブランチはこの変更に含めません。
