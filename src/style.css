@@ -48,3 +48,18 @@
 @media(max-width:600px){.jma-reference{font-size:12px}.jma-note,.jma-timestamp{font-size:11px}}
 
 .forecast-source{margin:0 17px 8px;font-size:10px;color:var(--muted)}
+
+/* Search and position confirmation share the existing calm green dialog. */
+.input-help{font-size:12px;line-height:1.8;color:var(--muted);margin:9px 0 0;overflow-wrap:anywhere}
+.search-help{background:#edf3e9;border:1px solid #c5d5bf;padding:12px;border-radius:5px;font-size:13px;line-height:1.9;overflow-wrap:anywhere}
+#map-search-form{margin:12px 0}#map-search-form label{display:block;font-size:13px;font-weight:600;margin-bottom:9px}#map-search-form input{font-size:16px}
+#map-search-results{max-height:230px;overflow-y:auto;overscroll-behavior:contain}#map-search-results .search-result{margin:8px 0;padding:12px}.selected-result{border-color:#78936c;background:#f1f6eb}
+#map-origin{font-size:11px}#map-panel,#location-form,.location-confirmation{min-width:0;max-width:100%}
+#map-panel .search-row{min-width:0}#map-panel .search-row .button{flex-shrink:0}#location-map{width:100%;min-width:0;height:300px}
+.map-position{font-size:12px;line-height:1.9;overflow-wrap:anywhere;background:#edf3e9;padding:10px;border-radius:5px}.position-confirmed{font-size:12px;font-weight:600;color:var(--green)}
+#confirm-map-position{width:100%}#back-to-address{display:block;width:100%;margin-top:5px}#adjust-on-map{margin-bottom:4px}
+.camp-map-pin{background:transparent;border:0}.camp-map-pin>span{display:block;margin:2px 3px;width:30px;height:30px;border:3px solid #fff;border-radius:50% 50% 50% 0;background:#a95327;box-shadow:0 1px 5px #18352e70;transform:rotate(-45deg)}
+.camp-map-pin>span:after{content:"";display:block;width:8px;height:8px;background:white;border-radius:50%;margin:8px}
+@media(max-width:600px){#location-map{height:290px}.input-help{font-size:12px}.search-modes button{font-size:11px;min-width:0;padding:7px 4px}#map-search-results{max-height:210px}}
+
+#map-search-status:empty,#map-tile-status:empty,#registration-save-status:empty{display:none}

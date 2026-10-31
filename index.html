@@ -38,13 +38,21 @@
     <dialog id="location-dialog" aria-labelledby="location-title">
       <div class="dialog-heading"><h2 id="location-title">キャンプ場を追加</h2><button id="close-dialog" class="close-button" aria-label="閉じる" type="button">×</button></div>
       <p id="location-intro">キャンプ場名で検索し、住所と地図で場所を確認してから登録してください。</p>
-      <div class="search-modes" role="group" aria-label="追加方法"><button type="button" data-search-mode="name" aria-pressed="true">キャンプ場名</button><button type="button" data-search-mode="address" aria-pressed="false">住所検索</button><button type="button" data-search-mode="map" aria-pressed="false">地図で指定</button></div>
-      <section id="map-panel" hidden><p id="map-status">地図を移動・拡大して、施設の場所をタップしてください。</p><div id="location-map" aria-label="地点選択地図"></div></section>
-      <form id="location-form"><label for="location-query"><strong id="query-label">キャンプ場名</strong> <span>都道府県・市町村を加えると絞り込めます</span></label><div class="search-row"><input id="location-query" type="search" maxlength="120" placeholder="例：ふもとっぱら 静岡県" required autocomplete="off"><button id="search-location" class="button primary" type="submit">検索</button></div></form>
+      <div class="search-modes" role="group" aria-label="追加方法"><button type="button" data-search-mode="name" aria-pressed="true">キャンプ場名</button><button type="button" data-search-mode="address" aria-pressed="false">住所で検索</button><button type="button" data-search-mode="map" aria-pressed="false">地図で指定</button></div>
+      <section id="map-panel" hidden aria-label="地図で登録位置を調整">
+        <form id="map-search-form"><label for="map-query">住所・地名で地図を移動</label><div class="search-row"><input id="map-query" type="search" maxlength="120" placeholder="例：静岡県富士宮市麓" required autocomplete="off" aria-describedby="map-input-help"><button id="map-move" class="button secondary" type="submit">移動</button></div><p id="map-input-help" class="input-help">番地などの数字は半角で入力してください。全角数字は自動で変換します。</p></form>
+        <p id="map-search-status" class="status" role="status"></p><div id="map-search-results"></div>
+        <p id="map-status">地図をタップ、またはピンをドラッグして調整できます。地図の移動だけでは位置は確定しません。</p><p id="map-origin" class="coordinates"></p>
+        <div id="location-map" aria-label="地点選択地図"></div><p id="map-tile-status" class="status" role="status"></p>
+        <p id="map-position" class="map-position" role="status"></p><button id="confirm-map-position" class="button primary" type="button" disabled>この位置を確定</button><button id="back-to-address" class="text-button" type="button" hidden>住所検索の結果に戻る</button>
+      </section>
+      <form id="location-form"><label for="location-query"><strong id="query-label">キャンプ場名</strong> <span>都道府県・市町村を加えると絞り込めます</span></label><div class="search-row"><input id="location-query" type="search" maxlength="120" placeholder="例：ふもとっぱら 静岡県" required autocomplete="off"><button id="search-location" class="button primary" type="submit">検索</button></div><p id="address-input-help" class="input-help" hidden>番地などの数字は半角で入力してください。全角数字は自動で変換します。</p></form>
       <p id="search-status" class="status" role="status"></p>
+      <p id="name-search-help" class="search-help" role="status" hidden>キャンプ場名で見つからない場合は、『住所で検索』または『地図で指定』をお試しください。</p>
       <details id="search-error-details" class="api-debug" hidden><summary>通信エラーの詳細</summary><pre></pre></details>
       <div id="search-results"></div>
-      <section id="location-confirmation" class="location-confirmation" hidden aria-labelledby="confirm-title"><h3 id="confirm-title">登録する場所を確認</h3><label for="registration-name">登録するキャンプ場名</label><input id="registration-name" maxlength="120" required placeholder="キャンプ場名を入力"><div id="confirmation-details"></div><p class="confirm-note">同名の施設がある場合があります。地図と住所が目的のキャンプ場と一致することを確認してください。</p><button id="confirm-location" class="button primary" type="button">この場所で登録</button></section>
+      <section id="location-confirmation" class="location-confirmation" hidden aria-labelledby="confirm-title"><h3 id="confirm-title">登録する場所を確認</h3><label for="registration-name">登録するキャンプ場名</label><input id="registration-name" maxlength="120" required placeholder="キャンプ場名を入力"><div id="confirmation-details"></div><p class="confirm-note">同名の施設がある場合があります。地図と住所が目的のキャンプ場と一致することを確認してください。</p><button id="adjust-on-map" class="button secondary" type="button" hidden>地図で位置を調整</button><button id="confirm-location" class="button primary" type="button">この場所で登録</button></section>
+      <p id="registration-save-status" class="status" role="status"></p>
       <p class="attribution">検索：Nominatim / <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> · 検索はボタンを押したときにのみ実行します。</p>
     </dialog>
   </body>
