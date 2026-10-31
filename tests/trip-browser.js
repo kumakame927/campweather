@@ -74,6 +74,7 @@ try {
   await page.locator('#add-camp').click(); await page.locator('[data-search-mode="map"]').click();
   await page.locator('#location-map.leaflet-container').waitFor();
   await page.locator('#location-map').click({ position: { x: 160, y: 150 } });
+  await page.locator('#confirm-map-position').click();
   await page.locator('#location-confirmation').waitFor();
   await page.locator('#registration-name').fill('地図から追加したキャンプ場'); await page.locator('#confirm-location').click(); await ready(2);
   await page.reload(); await ready(2);

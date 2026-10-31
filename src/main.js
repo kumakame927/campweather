@@ -1,6 +1,7 @@
+import { initRegistration } from './registration.js';
 import { initJma, renderJma, japanTimestamp } from './jma.js';
 import { forecastDays, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol, fetchJson } from './weather.js';
-import { STORAGE_KEY, LEGACY_STORAGE_KEY, loadLocal, persist, restoreCamps, searchLocations, locationId } from './locations.js';
+import { STORAGE_KEY, LEGACY_STORAGE_KEY, loadLocal, persist, restoreCamps } from './locations.js';
 import { usesSameOrigin } from './api.js';
 import { TRIP_STORAGE_KEY, restoreTrip, makeTrip, tripRangeError, dateLabel, japanToday } from './schedule.js';
 
@@ -8,22 +9,13 @@ let camps = restoreCamps(loadLocal(STORAGE_KEY, null) ?? loadLocal(LEGACY_STORAG
 let forecasts = new Map();
 let trip = restoreTrip(loadLocal(TRIP_STORAGE_KEY, null));
 let rangeError = tripRangeError(trip);
-let searchMode = 'name';
 let deleteId = null;
-let mapController = null;
 let refreshController;
 let refreshing = false;
 let lastRefreshAt = 0;
 let requestGeneration = 0;
-let editingId = null;
-let selectedLocation = null;
-let searchResults = [];
-let searchController;
-let searchGeneration = 0;
-let returnFocusId = null;
 const $ = selector => document.querySelector(selector);
 const grid = $('#camp-grid');
-const dialog = $('#location-dialog');
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const number = value => value === null || value === undefined ? '—' : String(Math.round(value * 10) / 10);
 function mapUrl(location) {
@@ -126,26 +118,14 @@ async function refreshWeather() {
   await Promise.all(Array.from({ length: Math.min(3, pending.length) }, worker));
   if (generation === requestGeneration) { refreshing = false; render(); }
 }
-function openLocation(id = null) {
-  editingId = id;
-  returnFocusId = id;
-  searchGeneration++;
-  searchController?.abort();
-  searchResults = [];
-  selectedLocation = null;
-  $('#location-confirmation').hidden = true;
-  $('#search-results').replaceChildren();
-  $('#search-status').textContent = '';
-  $('#search-error-details').hidden = true;
-  $('#search-location').disabled = false;
-  $('#search-location').textContent = '検索';
-  $('#location-title').textContent = id ? 'キャンプ場の場所を確認' : 'キャンプ場を追加';
-  const camp = id ? camps.find(camp => camp.id === id) : null;
-  $('#location-query').value = camp ? camp.searchName ?? camp.name : '';
-  $('#registration-name').value = camp?.name ?? '';
-  dialog.showModal();
-  if (searchMode === 'map') showMap(); else $('#location-query').focus();
-}
+const registration = initRegistration({ getCamps: () => camps, saveCamps, locationDetails, apiDetails, onSaved(targetId) {
+  refreshWeather();
+  if (targetId) {
+    $('#storage-notice').hidden = false;
+    $('#storage-notice').textContent = '登録済みのキャンプ場です。確認した位置を保存し、予報の再取得を開始しました。';
+  }
+} });
+const openLocation = id => registration.open(id);
 $('#empty-add-camp').addEventListener('click', () => openLocation());
 $('#add-camp').addEventListener('click', () => openLocation());
 $('#refresh-weather').addEventListener('click', refreshWeather);
@@ -158,87 +138,6 @@ grid.addEventListener('click', event => {
     $('#delete-name').textContent = camps.find(camp => camp.id === deleteId).name;
     $('#delete-dialog').showModal();
     $('#cancel-delete').focus();
-  }
-});
-$('#close-dialog').addEventListener('click', () => dialog.close());
-dialog.addEventListener('close', () => {
-  searchGeneration++;
-  searchController?.abort();
-  // 予報更新中にカードが再描画された場合も、元の操作位置へ戻す。
-  const origin = returnFocusId ? [...grid.querySelectorAll('[data-location]')].find(button => button.dataset.location === returnFocusId) : $('#add-camp');
-  origin?.focus();
-});
-$('#location-query').addEventListener('input', () => {
-  searchGeneration++;
-  searchController?.abort();
-  selectedLocation = null;
-  searchResults = [];
-  $('#search-results').replaceChildren();
-  $('#location-confirmation').hidden = true;
-  $('#search-status').textContent = '';
-  $('#search-error-details').hidden = true;
-  $('#search-location').disabled = false;
-  $('#search-location').textContent = '検索';
-});
-$('#location-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const query = $('#location-query').value.trim();
-  if (!query) { $('#search-status').textContent = 'キャンプ場名を入力してください。'; return; }
-  searchController?.abort();
-  searchController = new AbortController();
-  const generation = ++searchGeneration;
-  selectedLocation = null;
-  searchResults = [];
-  $('#location-confirmation').hidden = true;
-  $('#search-results').replaceChildren();
-  $('#search-error-details').hidden = true;
-  $('#search-status').textContent = '場所を検索しています…';
-  $('#search-location').disabled = true;
-  $('#search-location').textContent = '検索中…';
-  try {
-    const results = await searchLocations(query, searchController.signal, { mode: searchMode });
-    if (generation !== searchGeneration) return;
-    searchResults = results;
-    $('#search-status').textContent = results.length ? `${results.length}件の候補。${results.some(result => result.location.source === 'verified-listing') ? 'Nominatimに施設名の一致がなかったため、出典を照合した補足候補を表示しています。' : ''}地図と住所を確認してください。` : `通信は成功しましたが、${searchMode === 'address' ? '住所' : '施設名'}に一致する検索結果は0件でした。都道府県・市町村や正式名称で検索してください。地図に未登録の施設は見つからない場合があります。`;
-    $('#search-results').innerHTML = results.map((result, index) => `<article class="search-result"><h3>${escapeHtml(result.name)}</h3>${locationDetails(result.location)}<button class="button secondary select-location" data-select="${index}" type="button">この候補を選ぶ</button></article>`).join('');
-  } catch (error) {
-    if (generation !== searchGeneration || error.name === 'AbortError') return;
-    $('#search-status').textContent = `通信エラーのため検索を完了できませんでした。${error.message}`;
-    $('#search-error-details').hidden = false;
-    $('#search-error-details pre').textContent = apiDetails(error);
-  } finally {
-    if (generation === searchGeneration) { $('#search-location').disabled = false; $('#search-location').textContent = '検索'; }
-  }
-});
-$('#search-results').addEventListener('click', event => {
-  const button = event.target.closest('[data-select]');
-  if (!button) return;
-  selectedLocation = searchResults[Number(button.dataset.select)];
-  if (!selectedLocation) return;
-  const name = editingId ? camps.find(camp => camp.id === editingId).name : selectedLocation.name;
-  $('#registration-name').value = name;
-  $('#confirmation-details').innerHTML = `<p class="confirmation-name">${escapeHtml(name)}</p>${locationDetails(selectedLocation.location)}`;
-  $('#location-confirmation').hidden = false;
-  $('#confirm-location').textContent = editingId ? 'この場所で登録' : 'キャンプ場を登録';
-  $('#confirm-location').focus();
-});
-$('#confirm-location').addEventListener('click', () => {
-  if (!selectedLocation) return;
-  const name = $('#registration-name').value.trim();
-  if (!name) { $('#registration-name').reportValidity(); return; }
-  const { location } = selectedLocation;
-  const duplicate = camps.find(camp => camp.id !== editingId && camp.location && locationId(camp.location) === locationId(location));
-  // 初期登録済みの施設を追加画面から選んだ場合は、その施設を再確認する。
-  // 位置変更中に別の登録施設を選ぶ操作は、誤った施設の上書きを避けるため拒否する。
-  if (duplicate && editingId) { $('#search-status').textContent = `この場所は「${duplicate.name}」として登録済みです。`; return; }
-  const targetId = editingId ?? duplicate?.id;
-  const next = targetId ? camps.map(camp => camp.id === targetId ? { ...camp, name, location } : camp) : [...camps, { id: `place-${locationId(location)}`, name, location }];
-  if (!saveCamps(next)) { $('#search-status').textContent = '保存できませんでした。ストレージ設定を確認して再試行してください。'; return; }
-  dialog.close();
-  refreshWeather();
-  if (targetId) {
-    $('#storage-notice').hidden = false;
-    $('#storage-notice').textContent = '登録済みのキャンプ場です。確認した位置を保存し、予報の再取得を開始しました。';
   }
 });
 setInterval(() => { if (!document.hidden) refreshWeather(); }, 30 * 60 * 1000);
@@ -271,45 +170,5 @@ $('#confirm-delete').addEventListener('click', () => {
   refreshWeather();
   $('#add-camp').focus();
 });
-function resetSelection() {
-  searchGeneration++; searchController?.abort(); selectedLocation = null;
-  $('#location-confirmation').hidden = true;
-  $('#search-results').replaceChildren();
-  $('#search-status').textContent = '';
-  $('#search-error-details').hidden = true;
-  $('#search-location').disabled = false;
-  $('#search-location').textContent = '検索';
-}
-async function showMap() {
-  try {
-    if (!mapController) {
-      const { createPicker } = await import('./map.js');
-      mapController = createPicker($('#location-map'), point => {
-        if (!dialog.open || searchMode !== 'map') return;
-        const lat = Number(point.lat.toFixed(6)), lng = Number(point.lng.toFixed(6));
-        selectedLocation = { name: '地図で指定したキャンプ場', location: {
-          latitude: lat, longitude: lng, address: `地図指定地点（緯度 ${lat} / 経度 ${lng}）`,
-          source: 'map-pin', sourceId: `map-${lat.toFixed(6)}-${lng.toFixed(6)}`,
-        } };
-        $('#confirmation-details').innerHTML = locationDetails(selectedLocation.location);
-        $('#location-confirmation').hidden = false;
-        $('#search-status').textContent = '地図上の地点を選択しました。施設名と場所を確認して登録してください。';
-      });
-    }
-    setTimeout(() => mapController.invalidateSize(), 0);
-  } catch {
-    $('#search-status').textContent = '地図を読み込めませんでした。施設名・住所検索をご利用ください。';
-  }
-}
-document.querySelectorAll('[data-search-mode]').forEach(button => button.addEventListener('click', () => {
-  searchMode = button.dataset.searchMode; resetSelection();
-  document.querySelectorAll('[data-search-mode]').forEach(tab => tab.setAttribute('aria-pressed', String(tab === button)));
-  $('#location-form').hidden = searchMode === 'map';
-  $('#map-panel').hidden = searchMode !== 'map';
-  $('#query-label').textContent = searchMode === 'address' ? '住所' : 'キャンプ場名';
-  $('#location-query').placeholder = searchMode === 'address' ? '例：静岡県富士宮市麓156' : '例：ふもとっぱら';
-  $('#location-query').value = '';
-  if (searchMode === 'map') showMap(); else $('#location-query').focus();
-}));
 initJma({ grid, getCamps: () => camps, getTrip: () => trip });
 refreshWeather();

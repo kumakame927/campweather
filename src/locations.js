@@ -41,6 +41,17 @@ export function validLocation(location) {
 export function locationId(location) {
   return location.osmId ? `${location.osmType}-${location.osmId}` : location.sourceId;
 }
+// Keep kanji numerals, long vowel marks and compatibility characters in names.
+// Normalize only address digits, full-width spacing/hyphens and numeric separators.
+export function normalizeAddress(value) {
+  return value.replace(/[０-９]/g, char => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, ' ').replace(/－/g, '-').replace(/(\d)[‐‑‒–—−](?=\d)/g, '$1-').trim();
+}
+export function mapLocation(point, referenceAddress = '') {
+  const latitude = Number(point.latitude.toFixed(6)), longitude = Number(point.longitude.toFixed(6));
+  return { latitude, longitude, address: `地図指定地点（${referenceAddress ? `参考住所：${referenceAddress} / ` : ''}緯度 ${latitude} / 経度 ${longitude}）`,
+    source: 'map-pin', sourceId: `map-${latitude.toFixed(6)}-${longitude.toFixed(6)}` };
+}
 export function nameMatches(query, name) {
   const normalize = text => text.normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
     .replace(/おーと|auto|きゃんぷ場|きゃんぷじょう|きゃんぷ|campground|campsite|camp|[\s・ー_-]/g, '');
@@ -77,7 +88,7 @@ export function parseSearchResults(payload) {
 let lastSearchAt = 0;
 const memoryCache = new Map();
 export async function searchLocations(query, signal, { mode = 'name' } = {}) {
-  const raw = query.normalize('NFKC').trim();
+  const raw = mode === 'address' ? normalizeAddress(query) : query.normalize('NFKC').trim();
   const key = INITIAL_CAMPS.find(camp => camp.name === raw)?.searchName ?? raw;
   const cacheKey = `${mode}:${key}`;
   const stored = loadLocal('camp-weather-search-cache-v3', {});
