@@ -1,0 +1,35 @@
+name: Update OSM camp catalog
+on:
+  schedule:
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: osm-camp-catalog
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/update-camp-catalog.mjs --scheduled
+      - name: Commit only the generated catalog
+        run: |
+          if git diff --quiet -- public/data/campgrounds.json; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/data/campgrounds.json
+          git commit -m 'Update OSM camp catalog'
+          git pull --rebase origin main
+          git push origin HEAD:main
