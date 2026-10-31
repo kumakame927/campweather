@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import areaHandler from './api/jma-area.js';
+import { forecastHandler } from './api/jma-forecast.js';
+import { createForecastService, getJson } from './server/jma-forecast.js';
 
 const agent = process.env.HTTPS_PROXY ? new HttpsProxyAgent(process.env.HTTPS_PROXY) : undefined;
 const apiProxy = Object.fromEntries([
@@ -17,5 +20,14 @@ const apiProxy = Object.fromEntries([
     });
   },
 }]));
-// リレーは開発プレビュー専用。静的ビルドは外部 API に直接接続する。
-export default defineConfig({ base: './', server: { proxy: apiProxy } });
+const forecast = forecastHandler(createForecastService({ fetchJson: url => getJson(url, agent) }));
+function installJma(server) {
+  server.middlewares.use(async (req, res, next) => {
+    const path = req.url.split('?')[0];
+    if (path === '/api/jma-area') return areaHandler(req, res);
+    if (path === '/api/jma-forecast') return forecast(req, res);
+    next();
+  });
+}
+// JMA is served by Vercel Functions in production and equivalent middleware here.
+export default defineConfig({ base: './', server: { proxy: apiProxy }, plugins: [{ name: 'jma-preview', configureServer: installJma, configurePreviewServer: installJma }] });

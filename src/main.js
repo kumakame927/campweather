@@ -1,3 +1,4 @@
+import { initJma, renderJma, japanTimestamp } from './jma.js';
 import { forecastDays, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol, fetchJson } from './weather.js';
 import { STORAGE_KEY, LEGACY_STORAGE_KEY, loadLocal, persist, restoreCamps, searchLocations, locationId } from './locations.js';
 import { usesSameOrigin } from './api.js';
@@ -25,7 +26,6 @@ const grid = $('#camp-grid');
 const dialog = $('#location-dialog');
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const number = value => value === null || value === undefined ? '—' : String(Math.round(value * 10) / 10);
-const timeLabel = value => new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value));
 function mapUrl(location) {
   if (!location.osmId) return `https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=16/${location.latitude}/${location.longitude}`;
   return `https://www.openstreetmap.org/${location.osmType}/${location.osmId}#map=16/${location.latitude}/${location.longitude}`;
@@ -54,6 +54,7 @@ function rankedCamps() {
   return camps.map(camp => ({ ...camp, forecast: forecasts.get(camp.id)?.data })).sort(compareForecasts);
 }
 function render() {
+  const openJma = new Set([...grid.querySelectorAll('details.jma-reference[open]')].map(details => details.dataset.jmaCamp));
   const ranked = rankedCamps();
   const eligible = ranked.filter(camp => comparable(camp.forecast));
   const best = eligible[0];
@@ -90,7 +91,7 @@ function render() {
     else if (!result || result.state === 'loading') message = '予報を取得しています…';
     else if (result.state === 'error') message = `予報を取得できませんでした。${result.error}`;
     else if (!isComplete) message = '予報の一部を取得できませんでした。比較対象外です。';
-    return `<article class="camp-card ${recommended ? 'recommended' : ''}" data-camp-id="${escapeHtml(camp.id)}"><div class="card-heading"><h3>${escapeHtml(camp.name)}</h3>${recommended ? '<span class="recommendation-badge">おすすめ候補</span>' : ''}</div>${camp.location ? `<details class="location-details"><summary>${escapeHtml(camp.location.address)}</summary>${locationDetails(camp.location)}</details>` : '<p class="unconfirmed-label">場所を確認すると天気を表示できます</p>'}<div class="forecast-days ${trip.nights === 2 ? 'three-days' : ''}" style="--days:${trip.dates.length}">${trip.dates.map((date, index) => dayColumn(forecastDays(camp.forecast)[index], date, index)).join('')}</div>${message ? `<p class="card-status ${result?.state === 'error' ? 'error' : ''}" role="status">${escapeHtml(message)}</p>${result?.debug ? `<details class="api-debug"><summary>通信エラーの詳細</summary><pre>${escapeHtml(result.debug)}</pre></details>` : ''}` : ''}<div class="card-footer"><span>${result?.receivedAt && result.state === 'ready' ? `取得 ${timeLabel(result.receivedAt)} JST` : '予報未取得'}</span><button class="text-button location-button" data-location="${escapeHtml(camp.id)}" type="button">${camp.location ? '場所を変更' : '場所を確認'}</button><button class="text-button delete-button" data-delete="${escapeHtml(camp.id)}" type="button" aria-label="${escapeHtml(camp.name)}を削除">削除</button></div></article>`;
+    return `<article class="camp-card ${recommended ? 'recommended' : ''}" data-camp-id="${escapeHtml(camp.id)}"><div class="card-heading"><h3>${escapeHtml(camp.name)}</h3>${recommended ? '<span class="recommendation-badge">おすすめ候補</span>' : ''}</div>${camp.location ? `<details class="location-details"><summary>${escapeHtml(camp.location.address)}</summary>${locationDetails(camp.location)}</details>` : '<p class="unconfirmed-label">場所を確認すると天気を表示できます</p>'}<p class="forecast-source">Open-Meteo（主予報）</p><div class="forecast-days ${trip.nights === 2 ? 'three-days' : ''}" style="--days:${trip.dates.length}">${trip.dates.map((date, index) => dayColumn(forecastDays(camp.forecast)[index], date, index)).join('')}</div>${message ? `<p class="card-status ${result?.state === 'error' ? 'error' : ''}" role="status">${escapeHtml(message)}</p>${result?.debug ? `<details class="api-debug"><summary>通信エラーの詳細</summary><pre>${escapeHtml(result.debug)}</pre></details>` : ''}` : ''}${renderJma(camp, trip, openJma.has(camp.id))}<div class="card-footer"><span>${result?.receivedAt && result.state === 'ready' ? `Open-Meteo データ取得日時：${japanTimestamp(result.receivedAt)}` : '予報未取得'}</span><button class="text-button location-button" data-location="${escapeHtml(camp.id)}" type="button">${camp.location ? '場所を変更' : '場所を確認'}</button><button class="text-button delete-button" data-delete="${escapeHtml(camp.id)}" type="button" aria-label="${escapeHtml(camp.name)}を削除">削除</button></div></article>`;
   }).join('');
 }
 async function refreshWeather() {
@@ -310,4 +311,5 @@ document.querySelectorAll('[data-search-mode]').forEach(button => button.addEven
   $('#location-query').value = '';
   if (searchMode === 'map') showMap(); else $('#location-query').focus();
 }));
+initJma({ grid, getCamps: () => camps, getTrip: () => trip });
 refreshWeather();

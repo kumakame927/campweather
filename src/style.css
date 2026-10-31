@@ -38,3 +38,13 @@
 @media (max-width: 600px) {
   .trip-controls { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Secondary forecast stays separate from Open-Meteo's comparison and ranking. */
+.jma-reference{margin:0 16px;border-top:1px solid var(--line);font-size:11px;line-height:1.9;min-width:0;overflow-wrap:anywhere}
+.jma-reference>summary{cursor:pointer;min-height:44px;padding:12px 0;color:var(--green);font-weight:600}
+.jma-content{padding-bottom:14px;min-width:0}.jma-content p{margin:7px 0}.jma-area{font-size:12px}.jma-note,.jma-timestamp{font-size:10px;color:var(--muted)}
+.jma-day{border:1px solid var(--line);border-radius:5px;margin:10px 0;padding:10px;background:#f7f9f5;min-width:0}.jma-day h4{font-size:12px;margin:0 0 8px}.jma-source-label{font-size:10px;color:#526b59}.jma-rain{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}.jma-rain>div{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;border-bottom:1px solid var(--line)}.jma-rain dt,.jma-rain dd{margin:0;font-variant-numeric:tabular-nums}.jma-weekly{border-top:1px solid var(--line);margin-top:9px;padding-top:5px}.jma-error{color:#954821}
+.card-footer{flex-wrap:wrap}.card-footer>span{flex-basis:100%;line-height:1.8;padding-top:7px;overflow-wrap:anywhere}
+@media(max-width:600px){.jma-reference{font-size:12px}.jma-note,.jma-timestamp{font-size:11px}}
+
+.forecast-source{margin:0 17px 8px;font-size:10px;color:var(--muted)}
