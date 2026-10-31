@@ -66,3 +66,9 @@
 
 .backup-actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}.backup-file{display:grid;gap:8px;min-width:0;max-width:100%;font-weight:600}.backup-file input{display:block;font:inherit;max-width:100%;min-width:0;width:100%;min-height:44px}#backup-help{font-size:11px;line-height:1.9}#offline-notice{margin-bottom:0}#import-dialog p{overflow-wrap:anywhere}
 @media(max-width:600px){.backup-actions>*{width:100%}.brand{letter-spacing:.04em}.intro h1{max-width:350px}}
+
+.section-heading{flex-wrap:wrap}.camp-actions{display:flex;gap:8px;min-width:0;align-items:center}.camp-actions .button{gap:5px}
+#library-status:empty,#favorites-status:empty{display:none}.favorite-row{padding:16px 0;border-bottom:1px solid var(--line);min-width:0}.favorite-row h3{font-size:15px;overflow-wrap:anywhere}.favorite-row .address{font-size:12px;color:var(--muted)}.favorite-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.favorite-actions .button{font-size:11px}.favorite-actions button:disabled{cursor:default}.favorite-row .delete-button{margin-left:auto}.text-button[aria-pressed=true]{font-weight:700}#favorites-dialog .help{margin:18px 0}#favorites-add-new{margin-top:16px}#empty-camps .button{margin:5px}
+@media(max-width:600px){.camp-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%}.camp-actions>.button{min-width:0;white-space:normal}.favorite-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.favorite-actions .delete-button{grid-column:1/-1;justify-self:end}.card-footer .text-button{font-size:11px}}
+
+.favorite-actions .button{min-width:0;white-space:normal;padding:8px 6px}

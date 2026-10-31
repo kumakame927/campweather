@@ -1,3 +1,5 @@
+import { duplicateCamp } from './library.js';
+import { catalogMetadata, catalogSourceUrl } from './catalog-client.js';
 import { searchLocations, normalizeAddress, locationId, mapLocation } from './locations.js';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -12,7 +14,7 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
   function abort(draft) { draft.generation++; draft.controller?.abort(); draft.loading = false; }
   function cancelSearches() { if (drafts) Object.values(drafts).forEach(abort); if (mapDraft) abort(mapDraft.search); }
   function selection() {
-    if (mode === 'map') return mapConfirmed() ? { name: '地図で指定したキャンプ場', location: mapLocation(mapDraft.point, mapDraft.origin?.location.address) } : null;
+    if (mode === 'map') return mapConfirmed() ? { name: '地図で指定したキャンプ場', catalogIdentity: mapDraft.origin?.catalogIdentity, location: mapLocation(mapDraft.point, mapDraft.origin?.location.address) } : null;
     const selected = drafts[mode].selected;
     if (selected && selected === mapDraft.linkedSelection) return mapConfirmed() ? { ...selected, location: mapLocation(mapDraft.point, mapDraft.origin?.location.address) } : null;
     return selected;
@@ -22,12 +24,18 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
     const pending = mode !== 'map' && drafts[mode].selected && drafts[mode].selected === mapDraft.linkedSelection && !mapConfirmed();
     $('#location-confirmation').hidden = !selected && !pending;
     $('#confirm-location').disabled = !selected;
-    $('#adjust-on-map').hidden = mode !== 'address' || !drafts.address.selected;
-    $('#confirm-location').textContent = editingId ? 'この場所で登録' : 'キャンプ場を登録';
+    $('#favorite-location').disabled = !selected;
+    $('#favorite-location').hidden = Boolean(editingId);
+    $('#adjust-on-map').hidden = mode === 'map' || !drafts[mode].selected;
+    $('#confirm-location').textContent = editingId ? 'この場所で保存' : '比較に追加';
     $('#confirmation-details').innerHTML = pending ? '<p class="confirm-note">地図で調整した位置は未確定です。「地図で位置を調整」から位置を確定してください。</p>' : selected ? `${selected.location.source === 'map-pin' ? '<p class="position-confirmed">登録位置：地図で確定した位置</p>' : ''}${locationDetails(selected.location)}` : '';
   }
   function renderSearch() {
     const isMap = mode === 'map', draft = draftFor(), prefix = isMap ? 'map-' : '';
+    const meta = catalogMetadata();
+    $('#catalog-data-link').href = catalogSourceUrl();
+    $('#catalog-info').hidden = mode !== 'name';
+    $('#catalog-info').textContent = meta ? `関東近郊10都県のOSM一覧：${meta.count}施設・更新 ${new Date(meta.updatedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}。${meta.stale ? '更新が遅れているため前回の一覧です。' : ''}` : '関東7都県・山梨・長野・静岡のOSMキャンプ場一覧から検索します。';
     $(`#${isMap ? 'map-search' : 'search'}-status`).textContent = draft.status;
     if (!isMap) {
       $('#name-search-help').hidden = !(mode === 'name' && draft.zero && !draft.loading && !draft.error);
@@ -44,6 +52,7 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
     $('#confirm-map-position').disabled = !mapDraft.point;
     $('#confirm-map-position').textContent = mapConfirmed() ? 'この位置で確定済み' : 'この位置を確定';
     $('#back-to-address').hidden = !mapDraft.linkedSelection;
+    $('#back-to-address').textContent = mapDraft.returnMode === 'name' ? 'キャンプ場名の検索結果に戻る' : '住所検索の結果に戻る';
   }
   function updatePoint(point) {
     mapDraft.point = { latitude: Number(point.lat.toFixed(6)), longitude: Number(point.lng.toFixed(6)) };
@@ -74,6 +83,7 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
       if (draft.loading) { abort(draft); draft.status = '検索を中止しました。検索ボタンで再試行できます。'; }
     }
     if (next === 'map' && seed && mapDraft.linkedSelection !== seed) {
+      mapDraft.returnMode = previous;
       mapDraft.origin = seed;
       mapDraft.linkedSelection = seed;
       mapDraft.point = { latitude: seed.location.latitude, longitude: seed.location.longitude };
@@ -133,7 +143,7 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
       const results = await searchLocations(query, draft.controller.signal, { mode: submittedMode === 'name' ? 'name' : 'address' });
       if (session !== currentSession || generation !== draft.generation) return;
       draft.results = results; draft.zero = results.length === 0;
-      draft.status = results.length ? `${results.length}件の候補。${results.some(result => result.location.source === 'verified-listing') ? '出典を照合した補足候補を含みます。' : ''}${isMap ? '移動する場所を選んでください。' : '住所と位置を確認して候補を選んでください。'}` : '通信は成功しましたが、一致する検索結果は0件でした。住所・地名や表記を変えて検索してください。';
+      draft.status = results.length ? `${results.length}件の候補。${results.some(result => result.location.source === 'verified-listing') ? '出典を照合した補足候補を含みます。' : ''}${isMap ? '移動する場所を選んでください。' : '住所と位置を確認して候補を選んでください。'}` : submittedMode === 'name' ? '一覧の検索は完了しましたが、一致する結果は0件でした。住所検索・地図指定も利用できます。' : '通信は成功しましたが、一致する検索結果は0件でした。住所・地名や表記を変えて検索してください。';
       if (isMap && results.length === 1 && mode === submittedMode) choose(results[0]);
     } catch (error) {
       if (session !== currentSession || generation !== draft.generation || error.name === 'AbortError') return;
@@ -176,8 +186,8 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
     const seed = next === 'map' && mode === 'address' ? drafts.address.selected : null;
     setMode(next, seed);
   }));
-  $('#adjust-on-map').addEventListener('click', () => { setMode('map', drafts.address.selected); $('#map-panel').scrollIntoView({ block: 'start' }); });
-  $('#back-to-address').addEventListener('click', () => { setMode('address'); $('#location-query').focus(); });
+  $('#adjust-on-map').addEventListener('click', () => { setMode('map', drafts[mode].selected); $('#map-panel').scrollIntoView({ block: 'start' }); });
+  $('#back-to-address').addEventListener('click', () => { setMode(mapDraft.returnMode ?? 'address'); $('#location-query').focus(); });
   $('#confirm-map-position').addEventListener('click', () => {
     if (!mapDraft.point) return;
     mapDraft.confirmed = mapKey();
@@ -185,19 +195,24 @@ export function initRegistration({ getCamps, saveCamps, onSaved, locationDetails
     $('#location-confirmation').scrollIntoView({ block: 'nearest' });
     $('#registration-name').focus();
   });
-  $('#confirm-location').addEventListener('click', () => {
+  function commitRegistration(action) {
     const selected = selection();
     if (!selected || !$('#registration-name').reportValidity()) return;
     const name = $('#registration-name').value.trim();
     if (!name) return;
     const { location } = selected;
-    const duplicate = getCamps().find(camp => camp.id !== editingId && camp.location && locationId(camp.location) === locationId(location));
+    const osmRef = selected.catalogIdentity;
+    const candidate = { name, location, ...(osmRef ? { osmRef } : {}) };
+    const duplicate = duplicateCamp(getCamps(), candidate, editingId);
     if (duplicate && editingId) { $('#registration-save-status').textContent = `この場所は「${duplicate.name}」として登録済みです。`; return; }
-    const targetId = editingId ?? duplicate?.id;
-    const next = targetId ? getCamps().map(camp => camp.id === targetId ? { ...camp, name, location } : camp) : [...getCamps(), { id: `place-${locationId(location)}`, name, location }];
-    if (!saveCamps(next)) { $('#registration-save-status').textContent = '保存できませんでした。ストレージ設定を確認して再試行してください。'; return; }
-    dialog.close(); onSaved(targetId);
-  });
+    const targetId = editingId ?? duplicate?.id ?? `place-${locationId(location)}`;
+    const next = editingId ? getCamps().map(camp => camp.id === editingId ? { ...camp, ...candidate } : camp) : duplicate ? getCamps() : [...getCamps(), { id: targetId, ...candidate }];
+    const change = { id: targetId, action: editingId ? 'edit' : action, duplicate: Boolean(duplicate) };
+    if (!saveCamps(next, change)) { $('#registration-save-status').textContent = '保存できませんでした。ストレージ設定を確認して再試行してください。'; return; }
+    dialog.close(); onSaved(change);
+  }
+  $('#confirm-location').addEventListener('click', () => commitRegistration('compare'));
+  $('#favorite-location').addEventListener('click', () => commitRegistration('favorite'));
   $('#close-dialog').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
     session++; cancelSearches();

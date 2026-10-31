@@ -1,3 +1,5 @@
+import { COMPARISON_KEY, FAVORITES_KEY } from './library.js';
+import { writeStorageEntries } from './storage-transaction.js';
 import { STORAGE_KEY, validLocation, loadLocal } from './locations.js';
 import { TRIP_STORAGE_KEY, validDate, japanToday } from './schedule.js';
 // Retain the existing optional access-branch setting without enabling that feature.
@@ -20,7 +22,9 @@ function safeCamp(camp) {
       location.sourceName = point.sourceName; location.sourceUrl = point.sourceUrl;
     }
   }
-  return { id: camp.id, name: camp.name, ...(camp.searchName !== undefined ? { searchName: camp.searchName } : {}), location };
+  if (point.coordinateType !== undefined) { if (!['node', 'area-center'].includes(point.coordinateType)) fail(); location.coordinateType = point.coordinateType; }
+  if (camp.osmRef !== undefined && !/^(node|way|relation)-\d+$/.test(camp.osmRef)) fail();
+  return { id: camp.id, name: camp.name, ...(camp.osmRef ? { osmRef: camp.osmRef } : {}), ...(camp.searchName !== undefined ? { searchName: camp.searchName } : {}), location };
 }
 function safeDeparture(value) {
   if (!plain(value) || !text(value.name, 300) || !Number.isFinite(value.latitude) || Math.abs(value.latitude) > 90 || !Number.isFinite(value.longitude) || Math.abs(value.longitude) > 180) fail();
@@ -33,7 +37,14 @@ export function validateBackup(value) {
   const trip = value.trip;
   if (!plain(trip) || !validDate(trip.startDate) || ![0, 1, 2].includes(trip.nights) || !['manual', 'weekend'].includes(trip.mode)) fail();
   if (trip.mode === 'weekend' && (trip.nights !== 1 || new Date(`${trip.startDate}T00:00:00Z`).getUTCDay() !== 6)) fail();
-  return { application: 'hare-camp', version: 1, camps: { version: 2, camps }, trip: { startDate: trip.startDate, nights: trip.nights, mode: trip.mode }, ...(Object.hasOwn(value, 'departure') ? { departure: safeDeparture(value.departure) } : {}) };
+  const known = new Set(camps.map(camp => camp.id));
+  const selected = field => {
+    const valueIds = value[field];
+    if (valueIds === undefined) return { version: 1, ids: camps.map(camp => camp.id) };
+    if (valueIds?.version !== 1 || !Array.isArray(valueIds.ids) || valueIds.ids.some(id => !known.has(id)) || new Set(valueIds.ids).size !== valueIds.ids.length) fail();
+    return { version: 1, ids: [...valueIds.ids] };
+  };
+  return { application: 'hare-camp', version: 1, camps: { version: 2, camps }, comparison: selected('comparison'), favorites: selected('favorites'), trip: { startDate: trip.startDate, nights: trip.nights, mode: trip.mode }, ...(Object.hasOwn(value, 'departure') ? { departure: safeDeparture(value.departure) } : {}) };
 }
 export function parseBackup(content) {
   if (typeof content !== 'string' || new TextEncoder().encode(content).byteLength > MAX_BACKUP_BYTES) throw new Error('バックアップは1MB以下のJSONファイルを選んでください。');
@@ -41,34 +52,22 @@ export function parseBackup(content) {
   try { payload = JSON.parse(content); } catch { throw new Error('JSONファイルを読み取れませんでした。元のデータは変更していません。'); }
   return validateBackup(payload);
 }
-export function createBackup(camps, trip, departure) {
-  return { ...validateBackup({ application: 'hare-camp', version: 1, camps: { version: 2, camps }, trip, ...(departure ? { departure } : {}) }), exportedAt: new Date().toISOString() };
+export function createBackup(camps, trip, departure, comparisonIds = camps.map(camp => camp.id), favoriteIds = camps.map(camp => camp.id)) {
+  return { ...validateBackup({ application: 'hare-camp', version: 1, camps: { version: 2, camps }, comparison: { version: 1, ids: comparisonIds }, favorites: { version: 1, ids: favoriteIds }, trip, ...(departure ? { departure } : {}) }), exportedAt: new Date().toISOString() };
 }
 export function applyBackup(value, storage = localStorage) {
   const backup = validateBackup(value);
-  const entries = [[STORAGE_KEY, JSON.stringify(backup.camps)], [TRIP_STORAGE_KEY, JSON.stringify(backup.trip)]];
+  const entries = [[STORAGE_KEY, JSON.stringify(backup.camps)], [TRIP_STORAGE_KEY, JSON.stringify(backup.trip)], [COMPARISON_KEY, JSON.stringify(backup.comparison)], [FAVORITES_KEY, JSON.stringify(backup.favorites)]];
   if (backup.departure) entries.push([DEPARTURE_STORAGE_KEY, JSON.stringify(backup.departure)]);
-  let originals;
-  try { originals = entries.map(([key]) => [key, storage.getItem(key)]); }
-  catch { throw new Error('端末の保存領域を読み取れません。ストレージ設定を確認してください。元のデータは変更していません。'); }
-  const written = [];
-  try {
-    for (const [key, value] of entries) { storage.setItem(key, value); written.push(key); }
-  } catch {
-    let failed = false;
-    for (const [key, value] of originals.filter(([key]) => written.includes(key)).reverse()) {
-      try { if (value === null) storage.removeItem(key); else storage.setItem(key, value); } catch { failed = true; }
-    }
-    throw new Error(failed ? '取り込みに失敗し、元データの復元も完了できませんでした。バックアップを保管し、ブラウザのストレージ設定を確認してください。' : '保存できなかったため、取り込みを中止しました。元のデータは維持しています。');
-  }
+  writeStorageEntries(entries, storage);
   return backup;
 }
-export function initBackup({ getCamps, getTrip }) {
+export function initBackup({ getCamps, getTrip, getComparisonIds, getFavoriteIds }) {
   const $ = selector => document.querySelector(selector);
   let pending = null;
   $('#export-data').addEventListener('click', () => {
     try {
-      const data = createBackup(getCamps(), getTrip(), loadLocal(DEPARTURE_STORAGE_KEY, null));
+      const data = createBackup(getCamps(), getTrip(), loadLocal(DEPARTURE_STORAGE_KEY, null), getComparisonIds?.(), getFavoriteIds?.());
       const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
       const link = document.createElement('a'); link.href = url; link.download = `hare-camp-backup-${japanToday()}.json`; document.body.append(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -82,7 +81,7 @@ export function initBackup({ getCamps, getTrip }) {
     try {
       if (file.size > MAX_BACKUP_BYTES) throw new Error('バックアップは1MB以下のJSONファイルを選んでください。');
       pending = parseBackup(await file.text());
-      $('#import-preview').textContent = `キャンプ場：${pending.camps.camps.length}件 ／ 開始日：${pending.trip.startDate} ／ ${pending.trip.nights === 0 ? '日帰り' : `${pending.trip.nights}泊`}${pending.departure ? ' ／ 保存した出発地点を含む' : ''}`;
+      $('#import-preview').textContent = `キャンプ場：${pending.camps.camps.length}件（比較中${pending.comparison.ids.length}件・お気に入り${pending.favorites.ids.length}件） ／ 開始日：${pending.trip.startDate} ／ ${pending.trip.nights === 0 ? '日帰り' : `${pending.trip.nights}泊`}${pending.departure ? ' ／ 保存した出発地点を含む' : ''}`;
       $('#backup-status').textContent = '';
       $('#import-dialog').showModal(); $('#cancel-import').focus();
     } catch (error) { $('#backup-status').textContent = error.message; }

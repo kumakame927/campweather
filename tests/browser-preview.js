@@ -1,3 +1,4 @@
+import { mockCatalog } from './fixtures/catalog.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -11,15 +12,16 @@ const root = resolve('.');
 const output = resolve('test-results');
 await mkdir(output, { recursive: true });
 // ソースとビルドの両方を、Vite の変換なしで正しい MIME 型で配信する。
-const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     const source = url.pathname.startsWith('/source/');
     const prefix = source ? '/source/' : '/campweather/';
     if (!url.pathname.startsWith(prefix)) { res.writeHead(404).end(); return; }
-    const directory = source ? root : resolve(root, 'dist');
-    const path = resolve(directory, decodeURIComponent(url.pathname.slice(prefix.length)) || 'index.html');
+    const relative = decodeURIComponent(url.pathname.slice(prefix.length)) || 'index.html';
+    const directory = source ? (/^(icons\/|data\/|manifest\.webmanifest$)/.test(relative) ? resolve(root, 'public') : root) : resolve(root, 'dist');
+    const path = resolve(directory, relative);
     if (!path.startsWith(directory + sep)) { res.writeHead(403).end(); return; }
     res.writeHead(200, { 'Content-Type': mime[extname(path)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(await readFile(path));
@@ -41,6 +43,7 @@ try {
   for (const mode of ['source', 'campweather']) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
+    if (!live) await mockCatalog(page);
     const errors = [];
     const responses = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -75,7 +78,7 @@ try {
           lat: String(camp.location.latitude), lon: String(camp.location.longitude), osm_type: 'way', osm_id: extra ? 999999 : 640260125 }] });
       });
     }
-    const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設登録 · ${n}施設の予報を比較可能`, count, { timeout: 25000 });
+    const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設を比較中 · ${n}施設の予報を比較可能`, count, { timeout: 25000 });
     await page.goto(`${origin}/${mode}/`);
     await ready(3);
     assert.equal(await page.locator('.camp-card').count(), 3);
@@ -139,6 +142,7 @@ try {
       assert.match(await page.locator('.card-status').first().textContent(), /403.*アクセス制限/);
       failure = 'search';
       await page.locator('#add-camp').click();
+      await page.locator('[data-search-mode="address"]').click();
       await page.locator('#location-query').fill('通信失敗テスト');
       await page.locator('#search-location').click();
       await page.waitForFunction(() => document.querySelector('#search-status').textContent.includes('利用回数の制限'));

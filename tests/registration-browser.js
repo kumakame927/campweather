@@ -1,3 +1,4 @@
+import { mockCatalog } from './fixtures/catalog.js';
 import { chromium, webkit, devices } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
@@ -17,6 +18,9 @@ for (const [engine, type] of [[chromium, 'chromium'], [webkit, 'webkit']]) {
   try {
     const context = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, locale: 'ja-JP', timezoneId: 'Asia/Tokyo' });
     const page = await context.newPage(), errors = [], searches = [], weather = [];
+    let catalogFailure = false;
+    let releaseCatalog; const catalogGate = new Promise(resolve => { releaseCatalog = resolve; });
+    await mockCatalog(page, () => catalogFailure, () => catalogGate);
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(({ camps, today }) => {
       if (!localStorage.getItem('camp-weather-camps-v2')) localStorage.setItem('camp-weather-camps-v2', JSON.stringify({ version: 2, camps }));
@@ -47,13 +51,17 @@ for (const [engine, type] of [[chromium, 'chromium'], [webkit, 'webkit']]) {
     assert.equal(searches.length, 0, 'typing must not geocode');
     await page.locator('#search-location').click();
     assert(await page.locator('#name-search-help').isHidden(), 'hide help while searching');
+    releaseCatalog();
     await page.locator('#name-search-help').waitFor(); assert.equal(await page.locator('#name-search-help').textContent(), guidance);
-    assert.match(await page.locator('#search-status').textContent(), /通信は成功.*0件/);
+    assert.match(await page.locator('#search-status').textContent(), /一覧の検索は完了.*0件/);
+    catalogFailure = true;
+    await page.reload(); await ready(3); await page.locator('#add-camp').click();
     await page.locator('#location-query').fill('通信エラー施設');
     assert(await page.locator('#name-search-help').isHidden());
     await page.locator('#search-location').click();
     await page.waitForFunction(() => document.querySelector('#search-status').textContent.includes('通信エラー'));
     assert(await page.locator('#name-search-help').isHidden());
+    catalogFailure = false;
     await page.locator('[data-search-mode="address"]').click();
     assert.match(await page.locator('#address-input-help').textContent(), /番地などの数字は半角で入力してください。/);
     await page.locator('#location-query').fill(fullwidth); await page.locator('#search-location').click();

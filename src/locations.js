@@ -1,3 +1,5 @@
+import { normalizeCampName } from './catalog-data.js';
+import { searchCampCatalog } from './catalog-client.js';
 import { fetchJson } from './weather.js';
 import { VERIFIED_PLACES } from './verified-places.js';
 
@@ -53,9 +55,7 @@ export function mapLocation(point, referenceAddress = '') {
     source: 'map-pin', sourceId: `map-${latitude.toFixed(6)}-${longitude.toFixed(6)}` };
 }
 export function nameMatches(query, name) {
-  const normalize = text => text.normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
-    .replace(/おーと|auto|きゃんぷ場|きゃんぷじょう|きゃんぷ|campground|campsite|camp|[\s・ー_-]/g, '');
-  const needle = normalize(query), title = normalize(name);
+  const needle = normalizeCampName(query), title = normalizeCampName(name);
   return needle.length >= 2 && title.length >= 2 && (title.includes(needle) || needle.includes(title));
 }
 export function restoreCamps(saved) {
@@ -88,6 +88,7 @@ export function parseSearchResults(payload) {
 let lastSearchAt = 0;
 const memoryCache = new Map();
 export async function searchLocations(query, signal, { mode = 'name' } = {}) {
+  if (mode === 'name') return searchCampCatalog(query, signal);
   const raw = mode === 'address' ? normalizeAddress(query) : query.normalize('NFKC').trim();
   const key = INITIAL_CAMPS.find(camp => camp.name === raw)?.searchName ?? raw;
   const cacheKey = `${mode}:${key}`;
@@ -107,8 +108,7 @@ export async function searchLocations(query, signal, { mode = 'name' } = {}) {
     persist('camp-weather-last-search', lastSearchAt);
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.search = new URLSearchParams({ q: key, format: 'jsonv2', countrycodes: 'jp', limit: '5', addressdetails: '1', 'accept-language': 'ja' }).toString();
-    const results = parseSearchResults(await fetchJson(url, { signal })).filter(result => mode === 'address' || nameMatches(key, result.name));
-    if (!results.length && mode === 'name') results.push(...VERIFIED_PLACES.filter(place => nameMatches(key, place.name)));
+    const results = parseSearchResults(await fetchJson(url, { signal }));
     // 空の検索結果を24時間固定しない。通信失敗はここに到達せず、キャッシュしない。
     if (!results.length) return results;
     const entry = { timestamp: Date.now(), results };
