@@ -1,6 +1,7 @@
 import { forecastDays, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol, fetchJson } from './weather.js';
 import { STORAGE_KEY, LEGACY_STORAGE_KEY, loadLocal, persist, restoreCamps, searchLocations, locationId } from './locations.js';
 import { usesSameOrigin } from './api.js';
+import { initAccess } from './access.js';
 import { TRIP_STORAGE_KEY, restoreTrip, makeTrip, tripRangeError, dateLabel, japanToday } from './schedule.js';
 
 let camps = restoreCamps(loadLocal(STORAGE_KEY, null) ?? loadLocal(LEGACY_STORAGE_KEY, null));
@@ -23,6 +24,7 @@ let returnFocusId = null;
 const $ = selector => document.querySelector(selector);
 const grid = $('#camp-grid');
 const dialog = $('#location-dialog');
+let access;
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const number = value => value === null || value === undefined ? '—' : String(Math.round(value * 10) / 10);
 const timeLabel = value => new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value));
@@ -92,6 +94,7 @@ function render() {
     else if (!isComplete) message = '予報の一部を取得できませんでした。比較対象外です。';
     return `<article class="camp-card ${recommended ? 'recommended' : ''}" data-camp-id="${escapeHtml(camp.id)}"><div class="card-heading"><h3>${escapeHtml(camp.name)}</h3>${recommended ? '<span class="recommendation-badge">おすすめ候補</span>' : ''}</div>${camp.location ? `<details class="location-details"><summary>${escapeHtml(camp.location.address)}</summary>${locationDetails(camp.location)}</details>` : '<p class="unconfirmed-label">場所を確認すると天気を表示できます</p>'}<div class="forecast-days ${trip.nights === 2 ? 'three-days' : ''}" style="--days:${trip.dates.length}">${trip.dates.map((date, index) => dayColumn(forecastDays(camp.forecast)[index], date, index)).join('')}</div>${message ? `<p class="card-status ${result?.state === 'error' ? 'error' : ''}" role="status">${escapeHtml(message)}</p>${result?.debug ? `<details class="api-debug"><summary>通信エラーの詳細</summary><pre>${escapeHtml(result.debug)}</pre></details>` : ''}` : ''}<div class="card-footer"><span>${result?.receivedAt && result.state === 'ready' ? `取得 ${timeLabel(result.receivedAt)} JST` : '予報未取得'}</span><button class="text-button location-button" data-location="${escapeHtml(camp.id)}" type="button">${camp.location ? '場所を変更' : '場所を確認'}</button><button class="text-button delete-button" data-delete="${escapeHtml(camp.id)}" type="button" aria-label="${escapeHtml(camp.name)}を削除">削除</button></div></article>`;
   }).join('');
+  access?.sync();
 }
 async function refreshWeather() {
   refreshController?.abort();
@@ -310,4 +313,5 @@ document.querySelectorAll('[data-search-mode]').forEach(button => button.addEven
   $('#location-query').value = '';
   if (searchMode === 'map') showMap(); else $('#location-query').focus();
 }));
+access = initAccess({ getCamps: () => camps, getForecast: id => forecasts.get(id)?.data, getTrip: () => trip });
 refreshWeather();

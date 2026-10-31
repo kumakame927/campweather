@@ -16,6 +16,8 @@
     <main>
       <p id="startup-error" class="notice" role="alert" hidden></p>
       <noscript><p class="notice">キャンプ場の表示と検索にはJavaScriptが必要です。ブラウザの設定で有効にしてください。</p></noscript>
+      <div class="app-tabs" role="tablist" aria-label="比較画面"><button id="tab-weather" data-app-tab="weather" role="tab" aria-controls="panel-weather" aria-selected="true" type="button">天気</button><button id="tab-access" data-app-tab="access" role="tab" aria-controls="panel-access" aria-selected="false" tabindex="-1" type="button">アクセス</button><button id="tab-settings" data-app-tab="settings" role="tab" aria-controls="panel-settings" aria-selected="false" tabindex="-1" type="button">設定</button></div>
+      <div id="panel-weather" role="tabpanel" aria-labelledby="tab-weather">
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">CAMP WEATHER</p><h1 id="page-title"><span style="display:inline-block">撤収日、雨の少ない</span><span style="display:inline-block">キャンプ場へ。</span></h1>
         <p class="intro-text">選んだ日程の天気・降水確率・気温・風速をまとめて比較。</p>
@@ -31,6 +33,28 @@
         <div id="camp-grid" class="camp-grid"></div><div id="empty-camps" class="empty-camps" hidden><h3>キャンプ場が登録されていません</h3><p>比較したいキャンプ場を追加してください。</p><button id="empty-add-camp" class="button primary" type="button">＋ キャンプ場を追加</button></div>
       </section>
       <details class="help"><summary>予報・おすすめの見方</summary><ul><li>降水確率は1日の最大値、風速は1日の最大風速（m/s）です。気温は最高・最低気温（℃）です。</li><li>おすすめは予報の取得できた施設間の相対比較です。撤収日（日帰りでは当日）の降水確率、日程中の最大風速、最終日以外の最大降水確率の順で比較します。気温は数値で確認できます。予報が一部でも不足する施設は比較対象に含めません。</li><li>取得時刻はデータを受信した時刻です。表示中は30分ごとに自動更新します。予報が取得できない場合は架空の値で補いません。</li><li>住所・座標は検索候補や地図上の地点を確認して登録します。施設名だけで自動的に位置を確定しません。</li></ul></details>
+      </div>
+      <section id="panel-access" class="access-panel" role="tabpanel" aria-labelledby="tab-access" hidden>
+        <h1>アクセスを比較</h1><p class="intro-text">出発地から各キャンプ場までの所要時間と距離を一覧で確認します。</p>
+        <p id="route-setup-status" class="notice" role="status">経路APIは設定確認前です。</p>
+        <div class="access-controls"><label for="origin-source">出発地点<select id="origin-source"><option value="saved">保存した出発地点</option><option value="current">現在地</option><option value="search">住所・駅名・地名から検索</option></select></label><label for="travel-mode">移動手段<select id="travel-mode"><option value="DRIVE">車</option><option value="TRANSIT">公共交通（電車・バス・徒歩）</option></select></label></div>
+        <button id="current-origin-button" class="button secondary" type="button" hidden>許可して現在地を取得</button><p id="origin-status" class="status" role="status"></p>
+        <div id="origin-search-panel" hidden><form id="origin-form"><label for="origin-query">出発地の住所・駅名・地名</label><div class="search-row"><input id="origin-query" type="search" maxlength="120" required placeholder="例：東京駅"><button id="origin-submit" class="button secondary" type="submit">検索</button></div></form><p id="origin-search-status" class="status" role="status"></p><div id="origin-results"></div></div>
+        <p id="selected-origin" class="selected-origin"></p>
+        <label id="transit-time-field" for="transit-departure" hidden>公共交通の出発日時（日本時間）<input id="transit-departure" type="datetime-local"></label>
+        <p class="date-policy">車は渋滞を考慮しない所要時間です。公共交通は指定日時の検索です。比較操作で出発地・目的地の座標と日時を経路サービスへ送信します。</p>
+        <button id="route-compare" class="button primary" type="button">所要時間と距離を比較</button><p id="route-status" class="status" role="status"></p><p id="access-context" class="date-policy"></p>
+        <label class="access-sort" for="access-sort">並べ替え<select id="access-sort"><option value="time">所要時間が短い順</option><option value="rain">撤収日・当日の降水確率が低い順</option></select></label>
+        <div class="google-routes-content"><p id="google-attribution" class="google-attribution" hidden><img src="./src/google-maps-logo.svg" alt="Google Maps" height="18"></p><div id="access-results" class="access-grid"></div></div>
+        <p id="access-empty" class="notice" hidden>キャンプ場がありません。「天気」タブから追加してください。</p>
+      </section>
+      <section id="panel-settings" class="access-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <h1>設定</h1><h2>保存する出発地点</h2><p id="saved-departure" class="selected-origin"></p>
+        <form id="departure-form"><label for="departure-query">住所・駅名・地名から探す</label><div class="search-row"><input id="departure-query" type="search" maxlength="120" required placeholder="例：東京駅"><button id="departure-submit" class="button secondary" type="submit">検索</button></div></form><p id="departure-status" class="status" role="status"></p><div id="departure-results"></div>
+        <p id="departure-selection" class="date-policy"></p><label for="departure-name">保存名（自宅・駅名など）<input id="departure-name" maxlength="300" required placeholder="例：いつもの出発駅"></label>
+        <div class="settings-actions"><button id="save-departure" class="button primary" type="button" disabled>この出発地点を保存</button><button id="remove-departure" class="button secondary" type="button">保存地点を削除</button></div>
+        <p class="date-policy">保存先はこのブラウザだけです。現在地は許可ボタンを押したときだけ取得し、自動では保存しません。経路結果はlocalStorageへ保存しません。</p><h2>経路比較について</h2><p class="date-policy">経路APIは管理者の設定・課金承認後に利用できます。取得できない施設は「取得不可」と表示し、推測の時間や距離を表示しません。天気のおすすめは引き続き撤収日の降水確率を優先します。</p><p><a href="./legal.html" target="_blank" rel="noopener noreferrer">利用条件・プライバシーについて</a></p>
+      </section>
       <p class="notice" id="storage-notice" role="status" hidden></p>
     </main>
     <footer><p>予報：<a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · 場所検索：Nominatim / <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p><p>山間部の天気は変わりやすいため、出発前に最新の気象情報と施設の営業状況をご確認ください。</p></footer>

@@ -5,15 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && cp legal.html dist/legal.html",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/weather.test.js",
+    "test": "node tests/weather.test.js && node tests/routes.test.js",
     "test:browser": "node tests/browser-preview.js",
     "test:network": "node tests/network-preview.cjs",
-    "build:vercel": "VITE_API_TRANSPORT=same-origin vite build",
+    "build:vercel": "VITE_API_TRANSPORT=same-origin vite build && cp legal.html dist/legal.html",
     "test:vercel": "node tests/vercel-preview.js",
     "test:trip": "node tests/trip-browser.js",
-    "test:layout": "node tests/layout-browser.js"
+    "test:layout": "node tests/layout-browser.js",
+    "test:access": "node tests/access-browser.js"
   },
   "devDependencies": {
     "https-proxy-agent": "^7.0.6",
