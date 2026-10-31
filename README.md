@@ -118,3 +118,7 @@ node tests/network-preview.cjs
 - 変更や削除の保存に失敗した場合はエラーを表示し、登録済みデータを変更しません。
 
 開発プレビューを起動した状態で `CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:trip` を実行すると、日程別表示・順位・予報範囲外・旧データ移行・削除キャンセル・0件保持・住所と地図からの追加・スマートフォン幅をブラウザで検証できます。この自動テストの予報とタイルはテスト応答です。実API・実地図での動作確認とは区別します。
+
+## スマートフォンの日程入力
+
+600px以下では開始日・泊数を1列、各入力を幅100%にします。Gridの列・ラベル・入力の `min-width: 0` とSafariの日付入力の内在幅対策を適用しています。`npm run test:layout` はChromiumとWebKitで320〜600pxの縦配置、1024pxの横配置、重なりと横スクロールがないことを確認します。Playwrightブラウザと実行ライブラリが必要です。`CHROMIUM_EXECUTABLE_PATH` / `WEBKIT_EXECUTABLE_PATH` で既存のブラウザ実行ファイルを指定できます。

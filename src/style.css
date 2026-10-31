@@ -6,3 +6,35 @@
 .api-debug{margin:10px 16px;font-size:11px;line-height:1.8;color:#954821}.api-debug summary{cursor:pointer}.api-debug pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#fff3e8;padding:10px;border-radius:4px}
 
 .trip-controls{display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin-top:18px}.trip-controls label{font-size:12px;display:grid;gap:7px}.trip-controls input,.trip-controls select,#registration-name{font:inherit;min-height:44px;max-width:100%;background:#fff;border:1px solid #becbbf;border-radius:5px;padding:9px;color:#203b32}.trip-controls input,.trip-controls select{font-size:16px}.forecast-days{grid-template-columns:repeat(var(--days,2),minmax(0,1fr))}.day+.day{border-left:1px solid #dce3dc}.day-role{display:block;font-size:10px;font-weight:400;color:#66766d;margin-top:4px}.three-days .day{padding-left:8px;padding-right:8px}.three-days .day dd{font-size:11px}.three-days .day .rain dd{font-size:26px}.three-days .day h4{font-size:12px}.day h4{white-space:nowrap}.delete-button{color:#a3432b}.danger{background:#a3432b;color:#fff}.dialog-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}.empty-camps{text-align:center;padding:30px 18px;background:#fff;border:1px dashed #bdcbbf;border-radius:8px}.empty-camps h3{font-size:16px}.empty-camps p{font-size:12px;line-height:1.8}.search-modes{display:flex;gap:7px;margin:18px 0}.search-modes button{flex:1;min-height:44px;font-size:12px;border:1px solid #bdcbbf;border-radius:5px;background:#fff;color:#244d40}.search-modes button[aria-pressed=true]{background:#244d40;color:#fff}#registration-name{display:block;width:100%;font-size:16px;margin:8px 0 14px}.location-confirmation>label{font-size:12px}#location-map{height:300px;border-radius:5px;background:#edf1eb;z-index:0}#map-status{font-size:11px;line-height:1.8}.leaflet-container a{color:#244d40}.leaflet-control-attribution{font-size:9px!important}@media(max-width:600px){.trip-controls{gap:10px}.trip-controls label{flex:1;min-width:100px}.trip-controls input{min-width:0;width:100%}.trip-controls>button{width:100%}.card-footer{flex-wrap:wrap}.three-days .day dd small{font-size:9px}.three-days .weather{font-size:10px}.three-days .day dt{font-size:10px}}
+
+/* Safari の date/select の内在幅を Grid の列幅より優先させない。 */
+.trip-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+.trip-controls > label,
+.trip-controls > button {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+.trip-controls input,
+.trip-controls select {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+.trip-controls input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  min-inline-size: 0;
+}
+.trip-controls input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+@media (max-width: 600px) {
+  .trip-controls { grid-template-columns: minmax(0, 1fr); }
+}

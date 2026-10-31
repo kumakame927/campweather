@@ -12,7 +12,8 @@
     "test:network": "node tests/network-preview.cjs",
     "build:vercel": "VITE_API_TRANSPORT=same-origin vite build",
     "test:vercel": "node tests/vercel-preview.js",
-    "test:trip": "node tests/trip-browser.js"
+    "test:trip": "node tests/trip-browser.js",
+    "test:layout": "node tests/layout-browser.js"
   },
   "devDependencies": {
     "https-proxy-agent": "^7.0.6",
