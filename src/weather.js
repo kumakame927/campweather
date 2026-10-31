@@ -2,18 +2,9 @@ import { requestTarget, ApiError } from './api.js';
 export const FORECAST_ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
 export const DAILY_FIELDS = ['weather_code', 'precipitation_probability_max', 'temperature_2m_max', 'temperature_2m_min', 'wind_speed_10m_max'];
 
-// 日付の基準は常に日本時間。日曜日に開いた場合は翌週末を表示する。
-export function nextWeekend(now = new Date()) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(now).map(part => [part.type, part.value]));
-  const day = new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00Z`);
-  const offset = (6 - day.getUTCDay() + 7) % 7;
-  day.setUTCDate(day.getUTCDate() + offset);
-  const saturday = day.toISOString().slice(0, 10);
-  day.setUTCDate(day.getUTCDate() + 1);
-  return { saturday, sunday: day.toISOString().slice(0, 10) };
-}
+import { periodDates } from './schedule.js';
+export { nextWeekend } from './schedule.js';
+
 export function formatDate(iso) {
   const [, month, day] = iso.split('-').map(Number);
   return `${month}/${day}`;
@@ -23,7 +14,7 @@ export function forecastUrl(camp, weekend) {
   url.search = new URLSearchParams({
     latitude: String(camp.location.latitude), longitude: String(camp.location.longitude),
     daily: DAILY_FIELDS.join(','), timezone: 'Asia/Tokyo', wind_speed_unit: 'ms',
-    temperature_unit: 'celsius', start_date: weekend.saturday, end_date: weekend.sunday,
+    temperature_unit: 'celsius', start_date: periodDates(weekend)[0], end_date: periodDates(weekend).at(-1),
   }).toString();
   return url;
 }
@@ -51,29 +42,32 @@ export function parseForecast(payload, weekend) {
       wind: measured(value('wind_speed_10m_max'), 0, 200),
     };
   };
-  const result = { saturday: read(weekend.saturday), sunday: read(weekend.sunday) };
-  if (!result.saturday && !result.sunday) throw new Error('対象の週末の予報がありません。');
+  const days = periodDates(weekend).map(read);
+  // 既存の2日分インターフェースも維持し、表示と順位は days を使用する。
+  const result = { days, saturday: days[0], sunday: days.at(-1) };
+  if (days.every(day => !day)) throw new Error('対象の日程の予報がありません。');
   return result;
 }
+export function forecastDays(forecast) {
+  return forecast?.days ?? [forecast?.saturday, forecast?.sunday];
+}
 export function comparable(forecast) {
-  return ['saturday', 'sunday'].every(key => {
-    const day = forecast?.[key];
-    return day && ['rain', 'wind', 'high', 'low', 'code'].every(field => isNumber(day[field])) &&
-      weatherLabel(day.code) !== '天気情報なし' && day.low <= day.high;
-  });
+  const days = forecastDays(forecast);
+  return days.length > 0 && days.every(day => day && ['rain', 'wind', 'high', 'low', 'code'].every(field => isNumber(day[field])) && weatherLabel(day.code) !== '天気情報なし' && day.low <= day.high);
+}
+export function conditions(forecast) {
+  const days = forecastDays(forecast);
+  return [days.at(-1).rain, Math.max(...days.map(day => day.wind)), Math.max(0, ...days.slice(0, -1).map(day => day.rain))];
 }
 export function compareForecasts(a, b) {
   const validA = comparable(a.forecast), validB = comparable(b.forecast);
   if (validA !== validB) return validA ? -1 : 1;
   if (!validA) return a.name.localeCompare(b.name, 'ja');
-  const x = a.forecast, y = b.forecast;
-  return x.sunday.rain - y.sunday.rain ||
-    Math.max(x.saturday.wind, x.sunday.wind) - Math.max(y.saturday.wind, y.sunday.wind) ||
-    x.saturday.rain - y.saturday.rain || a.name.localeCompare(b.name, 'ja');
+  const x = conditions(a.forecast), y = conditions(b.forecast);
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || a.name.localeCompare(b.name, 'ja');
 }
 export function sameConditions(a, b) {
-  return comparable(a) && comparable(b) && a.sunday.rain === b.sunday.rain &&
-    Math.max(a.saturday.wind, a.sunday.wind) === Math.max(b.saturday.wind, b.sunday.wind) && a.saturday.rain === b.saturday.rain;
+  return comparable(a) && comparable(b) && conditions(a).every((value, index) => value === conditions(b)[index]);
 }
 export function weatherLabel(code) {
   const labels = {

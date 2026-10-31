@@ -1,7 +1,8 @@
 import { fetchJson } from './weather.js';
 import { VERIFIED_PLACES } from './verified-places.js';
 
-export const STORAGE_KEY = 'camp-weather-camps-v1';
+export const STORAGE_KEY = 'camp-weather-camps-v2';
+export const LEGACY_STORAGE_KEY = 'camp-weather-camps-v1';
 export const INITIAL_CAMPS = [
   // 公式住所 https://fumotoppara.net/ と OSM way/640260125 の住所を照合（2026-10-31）。
   { id: 'fumotoppara', name: 'ふもとっぱら', location: {
@@ -33,6 +34,7 @@ export function validLocation(location) {
     typeof location.address === 'string' && location.address.trim().length > 0;
   if (!validCoordinates) return false;
   if (['node', 'way', 'relation'].includes(location.osmType) && /^\d+$/.test(String(location.osmId))) return true;
+  if (location.source === 'map-pin' && location.sourceId === `map-${location.latitude.toFixed(6)}-${location.longitude.toFixed(6)}`) return true;
   return VERIFIED_PLACES.some(place => location.source === 'verified-listing' && location.sourceId === place.location.sourceId &&
     location.sourceUrl === place.location.sourceUrl && location.latitude === place.location.latitude && location.longitude === place.location.longitude);
 }
@@ -46,9 +48,12 @@ export function nameMatches(query, name) {
   return needle.length >= 2 && title.length >= 2 && (title.includes(needle) || needle.includes(title));
 }
 export function restoreCamps(saved) {
-  const safe = Array.isArray(saved) ? saved.filter(camp => camp && typeof camp.id === 'string' && camp.id.length <= 100 &&
+  const current = saved?.version === 2 && Array.isArray(saved.camps);
+  const records = current ? saved.camps : saved;
+  const safe = Array.isArray(records) ? records.filter(camp => camp && typeof camp.id === 'string' && camp.id.length <= 100 &&
     typeof camp.name === 'string' && camp.name.trim().length > 0 && camp.name.length <= 120 && validLocation(camp.location)) : [];
-  const camps = INITIAL_CAMPS.map(initial => ({ ...initial, location: safe.find(camp => camp.id === initial.id)?.location ?? initial.location }));
+  if (current) return [...new Map(safe.map(camp => [camp.id, camp])).values()];
+  const camps = INITIAL_CAMPS.map(initial => ({ ...initial, ...safe.find(camp => camp.id === initial.id) }));
   const ids = new Set(camps.map(camp => camp.id));
   for (const camp of safe) {
     if (!ids.has(camp.id)) { camps.push({ id: camp.id, name: camp.name, location: camp.location }); ids.add(camp.id); }
@@ -71,13 +76,14 @@ export function parseSearchResults(payload) {
 }
 let lastSearchAt = 0;
 const memoryCache = new Map();
-export async function searchLocations(query, signal) {
+export async function searchLocations(query, signal, { mode = 'name' } = {}) {
   const raw = query.normalize('NFKC').trim();
   const key = INITIAL_CAMPS.find(camp => camp.name === raw)?.searchName ?? raw;
-  const stored = loadLocal('camp-weather-search-cache-v2', {});
-  const cache = memoryCache.get(key) ?? (stored && typeof stored === 'object' ? stored[key] : null);
+  const cacheKey = `${mode}:${key}`;
+  const stored = loadLocal('camp-weather-search-cache-v3', {});
+  const cache = memoryCache.get(cacheKey) ?? (stored && typeof stored === 'object' ? stored[cacheKey] : null);
   if (cache && Date.now() - cache.timestamp < 86400000 && Array.isArray(cache.results)) {
-    return cache.results.filter(result => result && typeof result.name === 'string' && validLocation(result.location) && nameMatches(key, result.name));
+    return cache.results.filter(result => result && typeof result.name === 'string' && validLocation(result.location) && (mode === 'address' || nameMatches(key, result.name)));
   }
   // Nominatim: 検索ボタンによる明示的な検索だけを行い、1秒間に1回を超えない。
   const request = async () => {
@@ -90,17 +96,17 @@ export async function searchLocations(query, signal) {
     persist('camp-weather-last-search', lastSearchAt);
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.search = new URLSearchParams({ q: key, format: 'jsonv2', countrycodes: 'jp', limit: '5', addressdetails: '1', 'accept-language': 'ja' }).toString();
-    const results = parseSearchResults(await fetchJson(url, { signal })).filter(result => nameMatches(key, result.name));
-    if (!results.length) results.push(...VERIFIED_PLACES.filter(place => nameMatches(key, place.name)));
+    const results = parseSearchResults(await fetchJson(url, { signal })).filter(result => mode === 'address' || nameMatches(key, result.name));
+    if (!results.length && mode === 'name') results.push(...VERIFIED_PLACES.filter(place => nameMatches(key, place.name)));
     // 空の検索結果を24時間固定しない。通信失敗はここに到達せず、キャッシュしない。
     if (!results.length) return results;
     const entry = { timestamp: Date.now(), results };
-    memoryCache.set(key, entry);
+    memoryCache.set(cacheKey, entry);
     // 保存する検索結果は直近20件に限定する。
     const entries = stored && typeof stored === 'object' && !Array.isArray(stored) ? Object.entries(stored) : [];
-    const bounded = Object.fromEntries(entries.filter(([k]) => k !== key).slice(-19));
-    Object.defineProperty(bounded, key, { value: entry, enumerable: true });
-    persist('camp-weather-search-cache-v2', bounded);
+    const bounded = Object.fromEntries(entries.filter(([k]) => k !== cacheKey).slice(-19));
+    Object.defineProperty(bounded, cacheKey, { value: entry, enumerable: true });
+    persist('camp-weather-search-cache-v3', bounded);
     return results;
   };
   return navigator.locks ? navigator.locks.request('camp-weather-geocoding', { signal }, request) : request();

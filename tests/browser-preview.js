@@ -97,7 +97,7 @@ try {
     await page.waitForFunction(() => !document.querySelector('#location-dialog').open);
     await ready(3);
     // 初期施設は二重登録せず、ユーザーが確認した位置を保存する。
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('camp-weather-camps-v1')));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('camp-weather-camps-v2')).camps);
     assert.equal(saved.length, 3);
     assert.equal(saved.find(camp => camp.id === 'fumotoppara').location.osmId, '640260125');
     await page.reload();

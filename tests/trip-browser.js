@@ -1,0 +1,84 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { japanToday, addDays, makeTrip, nextWeekend } from '../src/schedule.js';
+
+const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
+try {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const requests = [];
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('camp-weather-camps-v1')) localStorage.setItem('camp-weather-camps-v1', JSON.stringify([{ id: 'old-custom', name: '以前の登録施設', location: { latitude: 35.33, longitude: 139.1, address: '以前に登録した住所', osmType: 'node', osmId: '999888777' } }]));
+  });
+  await page.route(url => url.pathname.endsWith('/v1/forecast'), async route => {
+    const url = new URL(route.request().url()), params = url.searchParams;
+    requests.push(url);
+    const start = params.get('start_date'), end = params.get('end_date');
+    const count = Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1;
+    const dates = Array.from({ length: count }, (_, index) => addDays(start, index));
+    const lat = Number(params.get('latitude'));
+    const first = lat === 35.3985153, second = lat === 34.8888729, third = lat === 36.3141326;
+    const rain = count === 1 ? (first ? 5 : second ? 20 : 40) : count === 2 ? (second ? 10 : first ? 90 : 40) : (third ? 5 : first ? 20 : 50);
+    await route.fulfill({ json: { daily_units: { temperature_2m_max: '°C', temperature_2m_min: '°C', wind_speed_10m_max: 'm/s', precipitation_probability_max: '%' }, daily: { time: dates, weather_code: dates.map(() => 1), precipitation_probability_max: dates.map((_, index) => index === count - 1 ? rain : 0), temperature_2m_max: dates.map(() => 20), temperature_2m_min: dates.map(() => 8), wind_speed_10m_max: dates.map(() => 3) } } });
+  });
+  await page.route(url => url.pathname.endsWith('/search'), route => route.fulfill({ json: [{ name: '番地の検索結果', display_name: '千葉県君津市折木沢1306', lat: '35.215901', lon: '140.106592', osm_type: 'node', osm_id: 123499 }] }));
+  await page.route('https://tile.openstreetmap.org/**', route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lxkAAAAASUVORK5CYII=', 'base64') }));
+  const ready = count => page.waitForFunction(n => document.querySelector('#fetch-status').textContent === `${n}施設登録 · ${n}施設の予報を比較可能`, count);
+  await page.goto(process.env.CAMP_PREVIEW_URL ?? 'http://127.0.0.1:5173/');
+  await ready(4);
+  assert.equal(await page.locator('#trip-start').inputValue(), nextWeekend().saturday);
+  assert.match(await page.locator('#camp-grid').textContent(), /以前の登録施設/);
+  await page.locator('#trip-start').fill(addDays(japanToday(), 1));
+  await page.locator('#trip-start').dispatchEvent('change');
+  await page.locator('#trip-nights').selectOption('0'); await ready(4);
+  assert.equal(await page.locator('.day').count(), 4);
+  assert.match(await page.locator('#recommendation-title').textContent(), /ふもとっぱら/);
+  await page.locator('#trip-nights').selectOption('1'); await ready(4);
+  assert.equal(await page.locator('.day').count(), 8);
+  assert.match(await page.locator('#recommendation-title').textContent(), /伊豆/);
+  await page.locator('#trip-nights').selectOption('2'); await ready(4);
+  assert.equal(await page.locator('.day').count(), 12);
+  assert.match(await page.locator('#recommendation-title').textContent(), /ニコニコ/);
+  const expected = makeTrip(addDays(japanToday(), 1), 2);
+  assert.equal(requests.at(-1).searchParams.get('end_date'), expected.endDate);
+  await page.reload(); await ready(4);
+  assert.equal(await page.locator('#trip-start').inputValue(), expected.startDate);
+  assert.equal(await page.locator('#trip-nights').inputValue(), '2');
+  for (const width of [320, 390, 768, 1280]) { await page.setViewportSize({ width, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow at ${width}`); }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'test-results/trip-three-days.png', fullPage: true });
+  const before = requests.length;
+  await page.locator('#trip-start').fill(addDays(japanToday(), 15)); await page.locator('#trip-start').dispatchEvent('change');
+  await page.locator('#trip-range-error').waitFor();
+  assert.match(await page.locator('#trip-range-error').textContent(), /最終日/);
+  assert.equal(requests.length, before);
+  assert.equal(await page.locator('.recommendation-badge').count(), 0);
+  await page.locator('#reset-weekend').click(); await ready(4);
+  await page.locator('[data-delete="fumotoppara"]').click(); await page.locator('#cancel-delete').click();
+  assert.equal(await page.locator('.camp-card').count(), 4);
+  await page.locator('[data-delete="fumotoppara"]').click(); await page.locator('#confirm-delete').click(); await ready(3);
+  await page.reload(); await ready(3);
+  assert.equal(await page.locator('[data-camp-id="fumotoppara"]').count(), 0);
+  assert.match(await page.evaluate(() => localStorage.getItem('camp-weather-camps-v1')), /以前の登録施設/);
+  while (await page.locator('.camp-card').count()) {
+    const count = await page.locator('.camp-card').count();
+    await page.locator('[data-delete]').first().click(); await page.locator('#confirm-delete').click(); await ready(count - 1);
+  }
+  await page.reload(); await ready(0);
+  assert(await page.locator('#empty-camps').isVisible());
+  await page.locator('#empty-add-camp').click();
+  await page.locator('[data-search-mode="address"]').click();
+  await page.locator('#location-query').fill('千葉県君津市折木沢1306'); await page.locator('#search-location').click();
+  await page.locator('[data-select="0"]').click(); await page.locator('#registration-name').fill('住所から追加したキャンプ場'); await page.locator('#confirm-location').click(); await ready(1);
+  await page.locator('#add-camp').click(); await page.locator('[data-search-mode="map"]').click();
+  await page.locator('#location-map.leaflet-container').waitFor();
+  await page.locator('#location-map').click({ position: { x: 160, y: 150 } });
+  await page.locator('#location-confirmation').waitFor();
+  await page.locator('#registration-name').fill('地図から追加したキャンプ場'); await page.locator('#confirm-location').click(); await ready(2);
+  await page.reload(); await ready(2);
+  assert.match(await page.locator('#camp-grid').textContent(), /住所から追加/);
+  assert.match(await page.locator('#camp-grid').textContent(), /地図から追加/);
+  assert.deepEqual(errors, []);
+  console.log('PASS: legacy migration; 1/2/3-day forecasts & rankings; saved dates; bounds/no requests; delete cancel/confirm; initial camps stay deleted; empty state; address & map additions; 4 viewports');
+} finally { await browser.close(); }

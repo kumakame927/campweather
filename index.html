@@ -4,42 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#244d40" />
-    <meta name="description" content="週末のキャンプ場を土日のお天気で比較。日曜日の降水確率、気温、風速から次のキャンプ先を探せます。" />
-    <title>CAMP NOTE | 週末のキャンプ天気比較</title>
+    <meta name="description" content="日帰りから2泊3日まで、撤収日の降水確率・気温・風速でキャンプ場を比較できます。" />
+    <title>CAMP NOTE | キャンプ日程の天気比較</title>
     <link rel="icon" type="image/svg+xml" href="./src/favicon.svg" />
+    <link rel="stylesheet" href="./node_modules/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="./src/style.css" />
     <script type="module" src="./src/bootstrap.js"></script>
   </head>
   <body>
-    <header class="header"><a class="brand" href="./"><span aria-hidden="true">△</span> CAMP NOTE</a><span class="header-caption">週末のキャンプ天気比較</span></header>
+    <header class="header"><a class="brand" href="./"><span aria-hidden="true">△</span> CAMP NOTE</a><span class="header-caption">キャンプ日程の天気比較</span></header>
     <main>
       <p id="startup-error" class="notice" role="alert" hidden></p>
       <noscript><p class="notice">キャンプ場の表示と検索にはJavaScriptが必要です。ブラウザの設定で有効にしてください。</p></noscript>
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">WEEKEND CAMP WEATHER</p><h1 id="page-title"><span style="display:inline-block">日曜、雨の少ない</span><span style="display:inline-block">キャンプ場へ。</span></h1>
-        <p class="intro-text">土日の天気・降水確率・気温・風速をまとめて比較。</p>
-        <div class="weekend-toolbar"><div><span class="period-label">比較する週末 <span class="timezone">日本時間</span></span><h2 id="weekend-period"></h2></div><button id="refresh-weather" class="button secondary" type="button">予報を更新</button></div>
-        <p class="date-policy">直近の土曜と翌日曜を表示します。土曜は当日を含み、日曜は次の週末に切り替わります。</p>
+        <p class="eyebrow">CAMP WEATHER</p><h1 id="page-title"><span style="display:inline-block">撤収日、雨の少ない</span><span style="display:inline-block">キャンプ場へ。</span></h1>
+        <p class="intro-text">選んだ日程の天気・降水確率・気温・風速をまとめて比較。</p>
+        <div class="weekend-toolbar"><div><span class="period-label">キャンプ日程 <span class="timezone">日本時間</span></span><h2 id="weekend-period"></h2></div><button id="refresh-weather" class="button secondary" type="button">予報を更新</button></div>
+        <div class="trip-controls"><label for="trip-start">開始日<input id="trip-start" type="date" required></label><label for="trip-nights">泊数<select id="trip-nights"><option value="0">日帰り</option><option value="1">1泊2日</option><option value="2">2泊3日</option></select></label><button id="reset-weekend" class="button secondary" type="button">直近の土日</button></div>
+        <p class="date-policy">日本時間で今日から16日間の予報に対応します。初期日程は直近の土日です。</p><p id="trip-range-error" class="notice" role="status" hidden></p>
       </section>
       <section id="recommendation" class="recommendation" aria-labelledby="recommendation-title" aria-live="polite"></section>
       <section class="comparison" aria-labelledby="comparison-title">
         <div class="section-heading"><h2 id="comparison-title">キャンプ場の天気比較</h2><button id="add-camp" class="button primary" type="button">＋ キャンプ場を追加</button></div>
-        <p class="sort-description">日曜の降水確率が低い順。同率なら週末の最大風速、土曜の降水確率の順で比較。</p>
+        <p id="ranking-rule" class="sort-description">日曜の降水確率が低い順。同率なら週末の最大風速、土曜の降水確率の順で比較。</p>
         <p id="fetch-status" class="status" role="status">アプリを読み込んでいます…</p>
-        <div id="camp-grid" class="camp-grid"></div>
+        <div id="camp-grid" class="camp-grid"></div><div id="empty-camps" class="empty-camps" hidden><h3>キャンプ場が登録されていません</h3><p>比較したいキャンプ場を追加してください。</p><button id="empty-add-camp" class="button primary" type="button">＋ キャンプ場を追加</button></div>
       </section>
-      <details class="help"><summary>予報・おすすめの見方</summary><ul><li>降水確率は1日の最大値、風速は1日の最大風速（m/s）です。気温は最高・最低気温（℃）です。</li><li>おすすめは予報の取得できた施設間の相対比較です。気温は順位の計算に含めず、数値で確認できます。予報が一部でも不足する施設は比較対象に含めません。</li><li>取得時刻はデータを受信した時刻です。表示中は30分ごとに自動更新します。予報が取得できない場合は架空の値で補いません。</li><li>住所・座標は場所検索の候補を確認して登録します。施設名だけで自動的に位置を確定しません。</li></ul></details>
+      <details class="help"><summary>予報・おすすめの見方</summary><ul><li>降水確率は1日の最大値、風速は1日の最大風速（m/s）です。気温は最高・最低気温（℃）です。</li><li>おすすめは予報の取得できた施設間の相対比較です。撤収日（日帰りでは当日）の降水確率、日程中の最大風速、最終日以外の最大降水確率の順で比較します。気温は数値で確認できます。予報が一部でも不足する施設は比較対象に含めません。</li><li>取得時刻はデータを受信した時刻です。表示中は30分ごとに自動更新します。予報が取得できない場合は架空の値で補いません。</li><li>住所・座標は検索候補や地図上の地点を確認して登録します。施設名だけで自動的に位置を確定しません。</li></ul></details>
       <p class="notice" id="storage-notice" role="status" hidden></p>
     </main>
     <footer><p>予報：<a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · 場所検索：Nominatim / <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p><p>山間部の天気は変わりやすいため、出発前に最新の気象情報と施設の営業状況をご確認ください。</p></footer>
+    <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">キャンプ場を削除しますか？</h2><p><strong id="delete-name"></strong>を比較一覧から削除します。</p><p>必要になった場合は再び追加できます。</p><div class="dialog-actions"><button id="cancel-delete" class="button secondary" type="button">キャンセル</button><button id="confirm-delete" class="button danger" type="button">削除する</button></div></dialog>
     <dialog id="location-dialog" aria-labelledby="location-title">
       <div class="dialog-heading"><h2 id="location-title">キャンプ場を追加</h2><button id="close-dialog" class="close-button" aria-label="閉じる" type="button">×</button></div>
       <p id="location-intro">キャンプ場名で検索し、住所と地図で場所を確認してから登録してください。</p>
-      <form id="location-form"><label for="location-query">キャンプ場名 <span>都道府県・市町村を加えると絞り込めます</span></label><div class="search-row"><input id="location-query" type="search" maxlength="120" placeholder="例：ふもとっぱら 静岡県" required autocomplete="off"><button id="search-location" class="button primary" type="submit">検索</button></div></form>
+      <div class="search-modes" role="group" aria-label="追加方法"><button type="button" data-search-mode="name" aria-pressed="true">キャンプ場名</button><button type="button" data-search-mode="address" aria-pressed="false">住所検索</button><button type="button" data-search-mode="map" aria-pressed="false">地図で指定</button></div>
+      <section id="map-panel" hidden><p id="map-status">地図を移動・拡大して、施設の場所をタップしてください。</p><div id="location-map" aria-label="地点選択地図"></div></section>
+      <form id="location-form"><label for="location-query"><strong id="query-label">キャンプ場名</strong> <span>都道府県・市町村を加えると絞り込めます</span></label><div class="search-row"><input id="location-query" type="search" maxlength="120" placeholder="例：ふもとっぱら 静岡県" required autocomplete="off"><button id="search-location" class="button primary" type="submit">検索</button></div></form>
       <p id="search-status" class="status" role="status"></p>
       <details id="search-error-details" class="api-debug" hidden><summary>通信エラーの詳細</summary><pre></pre></details>
       <div id="search-results"></div>
-      <section id="location-confirmation" class="location-confirmation" hidden aria-labelledby="confirm-title"><h3 id="confirm-title">登録する場所を確認</h3><div id="confirmation-details"></div><p class="confirm-note">同名の施設がある場合があります。地図と住所が目的のキャンプ場と一致することを確認してください。</p><button id="confirm-location" class="button primary" type="button">この場所で登録</button></section>
+      <section id="location-confirmation" class="location-confirmation" hidden aria-labelledby="confirm-title"><h3 id="confirm-title">登録する場所を確認</h3><label for="registration-name">登録するキャンプ場名</label><input id="registration-name" maxlength="120" required placeholder="キャンプ場名を入力"><div id="confirmation-details"></div><p class="confirm-note">同名の施設がある場合があります。地図と住所が目的のキャンプ場と一致することを確認してください。</p><button id="confirm-location" class="button primary" type="button">この場所で登録</button></section>
       <p class="attribution">検索：Nominatim / <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> · 検索はボタンを押したときにのみ実行します。</p>
     </dialog>
   </body>

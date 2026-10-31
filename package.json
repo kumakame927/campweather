@@ -11,11 +11,15 @@
     "test:browser": "node tests/browser-preview.js",
     "test:network": "node tests/network-preview.cjs",
     "build:vercel": "VITE_API_TRANSPORT=same-origin vite build",
-    "test:vercel": "node tests/vercel-preview.js"
+    "test:vercel": "node tests/vercel-preview.js",
+    "test:trip": "node tests/trip-browser.js"
   },
   "devDependencies": {
     "https-proxy-agent": "^7.0.6",
     "playwright": "^1.56.1",
     "vite": "^6.4.1"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
   }
 }

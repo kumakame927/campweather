@@ -91,7 +91,7 @@ test('確認済みの初期座標を使い、不正な施設情報は復元し�
   const location = parseSearchResults([{ display_name: '検索結果の住所', lat: '35.123', lon: '139.456', osm_type: 'node', osm_id: 123 }])[0].location;
   const camps = restoreCamps([{ id: 'nikoniko', name: '別名', location }, { id: 'custom', name: '追加施設', location }, { id: 'invalid', name: '不正', location: {} }]);
   assert.equal(camps.length, 4);
-  assert.equal(camps.find(camp => camp.id === 'nikoniko').name, 'ニコニコキャンプ');
+  assert.equal(camps.find(camp => camp.id === 'nikoniko').name, '別名');
   assert.deepEqual(camps.find(camp => camp.id === 'nikoniko').location, location);
 });
 test('HTTPエラー・利用制限・タイムアウトを成功扱いしない', async t => {
@@ -122,4 +122,46 @@ test('通信成功時の補足候補は出典確認済みの座標を使い、�
   const restored = restoreCamps([{ id: locationId(found[0].location), ...found[0] }]);
   assert.equal(restored.length, 4);
   assert.equal(restored[3].location.sourceId, 'nap-camp-11955');
+});
+
+test('選択日程は1〜3日、月末・年末をまたいでも正しく作る', async () => {
+  const { makeTrip, restoreTrip } = await import('../src/schedule.js');
+  assert.deepEqual(makeTrip('2026-12-31', 2).dates, ['2026-12-31', '2027-01-01', '2027-01-02']);
+  assert.equal(makeTrip('2026-11-01', 0).dates.length, 1);
+  assert.equal(makeTrip('2026-11-01', 1).endDate, '2026-11-02');
+  assert.throws(() => makeTrip('2026-02-30', 1));
+  assert.throws(() => makeTrip('2026-11-01', 3));
+  assert.equal(restoreTrip({ mode: 'manual', startDate: '2026-11-05', nights: 2 }).endDate, '2026-11-07');
+  assert.equal(restoreTrip(null, new Date('2026-11-01T01:00:00Z')).startDate, '2026-11-07');
+});
+test('予報範囲は日本時間の今日から15日後まで、最終日を検証', async () => {
+  const { makeTrip, tripRangeError } = await import('../src/schedule.js');
+  const now = new Date('2026-10-31T00:00:00Z');
+  assert.equal(tripRangeError(makeTrip('2026-11-15', 0), now), '');
+  assert.equal(tripRangeError(makeTrip('2026-11-13', 2), now), '');
+  assert.match(tripRangeError(makeTrip('2026-11-14', 2), now), /最終日/);
+  assert.match(tripRangeError(makeTrip('2026-10-30', 0), now), /過去/);
+});
+test('日帰り・2泊3日のAPI期間・欠測判定と撤収日優先の順位', async () => {
+  const { makeTrip } = await import('../src/schedule.js');
+  const trip = makeTrip('2026-10-31', 2);
+  assert.equal(forecastUrl({ location: { latitude: 35, longitude: 139 } }, trip).searchParams.get('end_date'), '2026-11-02');
+  const three = overrides => parseForecast(payload({ time: trip.dates, weather_code: [1, 2, 3], precipitation_probability_max: [0, 10, 90], temperature_2m_max: [20, 20, 20], temperature_2m_min: [10, 10, 10], wind_speed_10m_max: [1, 1, 1], ...overrides }), trip);
+  const dryFinish = { name: '撤収日が乾く', forecast: three({ precipitation_probability_max: [100, 100, 0] }) };
+  const rainyFinish = { name: '初日が乾く', forecast: three({}) };
+  assert(compareForecasts(dryFinish, rainyFinish) < 0);
+  assert(!comparable(three({ precipitation_probability_max: [0, null, 0] })));
+  const day = makeTrip('2026-10-31', 0);
+  assert.equal(parseForecast(payload(), day).days.length, 1);
+  assert(comparable(parseForecast(payload(), day)));
+});
+test('保存v2は初期施設の削除と0件を保持し、v1は追加済み施設を移行', () => {
+  const original = restoreCamps(null);
+  const custom = { ...original[0], id: 'my-camp', name: '以前に追加した施設' };
+  assert.equal(restoreCamps([custom]).length, 4);
+  assert.deepEqual(restoreCamps({ version: 2, camps: [] }), []);
+  const deleted = restoreCamps({ version: 2, camps: [original[1], custom] });
+  assert.deepEqual(deleted.map(camp => camp.id), ['izu-kakure', 'my-camp']);
+  const map = { id: 'map-camp', name: '地図の地点', location: { latitude: 35, longitude: 139, address: '選んだ地点', source: 'map-pin', sourceId: 'map-35.000000-139.000000' } };
+  assert.equal(restoreCamps({ version: 2, camps: [map] }).length, 1);
 });
