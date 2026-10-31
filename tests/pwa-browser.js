@@ -28,16 +28,16 @@ for (const [engine, type, device] of [[chromium, 'chromium', 'Pixel 7'], [webkit
     assert.equal(await page.locator('#page-title').textContent(), '今週末、晴れるキャンプ場はどこ？');
     assert.equal(await page.locator('meta[name="apple-mobile-web-app-title"]').getAttribute('content'), '晴れキャン');
     const manifestUrl = await page.locator('link[rel="manifest"]').evaluate(el => el.href);
-    const manifest = await (await context.request.get(manifestUrl)).json();
+    const manifest = await page.evaluate(url => fetch(url).then(response => response.json()), manifestUrl);
     assert.equal(manifest.display, 'standalone'); assert.equal(manifest.name, '晴れキャン');
     assert.equal(new URL(manifest.scope, manifestUrl).href, new URL('./', manifestUrl).href);
     {
       for (const icon of manifest.icons) {
-        const image = await context.request.get(new URL(icon.src, manifestUrl).href);
-        assert.equal(image.status(), 200); assert.match(image.headers()['content-type'], /image\/png/);
+        const image = await page.evaluate(url => fetch(url).then(response => ({ status: response.status, type: response.headers.get('content-type') })), new URL(icon.src, manifestUrl).href);
+        assert.equal(image.status, 200); assert.match(image.type, /image\/png/);
       }
       for (const selector of ['link[rel="apple-touch-icon"]', 'link[rel="icon"]']) {
-        const url = await page.locator(selector).evaluate(el => el.href); assert.equal((await context.request.get(url)).status(), 200);
+        const url = await page.locator(selector).evaluate(el => el.href); assert.equal(await page.evaluate(url => fetch(url).then(response => response.status), url), 200);
       }
     }
     assert.deepEqual(await page.evaluate(() => navigator.serviceWorker.getRegistrations().then(items => items.map(item => item.scope))), []);
