@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HOURLY_FIELDS, parseHourly, comfortMetrics, comfortComment, equipmentAdvice } from '../src/hourly.js';
+import { HOURLY_FIELDS, parseHourly, comfortMetrics, comfortComment } from '../src/hourly.js';
 import { forecastUrl, parseForecast, fetchForecast, comparable, compareForecasts } from '../src/weather.js';
 import { makeTrip } from '../src/schedule.js';
 import { hourlyPayload } from './fixtures/hourly.js';
@@ -68,7 +68,7 @@ test('体感温度・寒暖差の値や欠測は、既存の日曜降水確率�
   const values=[{name:'気温快適',forecast:parseForecast(second,trip)},{name:'撤収日が低雨',forecast:parseForecast(first,trip)}];
   assert.deepEqual(values.sort(compareForecasts).map(c=>c.name),['撤収日が低雨','気温快適']);
 });
-test('アドバイスは取得値に基づき、寒暖差・冷え込み・暑さ・強風を条件分岐する', () => {
-  const result=metrics(hourlyPayload(trip));assert.match(comfortComment(result),/朝晩/);assert.match(equipmentAdvice(result,9).join(' '),/重ね着.*防寒着.*風が強い/);
-  const unavailable=comfortMetrics(null,trip);assert.match(comfortComment(unavailable),/不足/);assert.match(equipmentAdvice(unavailable,null).join(' '),/不足/);
+test('一覧カードの既存コメントは詳細アドバイスの改善後も維持する', () => {
+  assert.match(comfortComment(metrics(hourlyPayload(trip))), /朝晩/);
+  assert.match(comfortComment(comfortMetrics(null,trip)), /不足/);
 });

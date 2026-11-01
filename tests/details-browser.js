@@ -13,7 +13,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
   try {
     const context = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, locale: 'ja-JP', timezoneId: 'America/Los_Angeles' });
     const page = await context.newPage(), requests = [], errors = [];
-    let mode = 'normal';
+    let mode = 'normal', clothingCase = null;
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(trip => { if (!localStorage.getItem('camp-weather-trip-v1')) localStorage.setItem('camp-weather-trip-v1', JSON.stringify({ startDate: trip.startDate, nights: 1, mode: 'manual' })); }, trip);
     await page.route(url => url.pathname.endsWith('/v1/forecast'), async route => {
@@ -22,6 +22,17 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       const payload = hourlyPayload(makeTrip(params.get('start_date'), (Date.parse(params.get('end_date')) - Date.parse(params.get('start_date'))) / 86400000));
       const latitude = Number(params.get('latitude'));
       payload.daily.precipitation_probability_max = payload.daily.time.map((_, index) => index === payload.daily.time.length - 1 ? latitude === 34.8888729 ? 10 : latitude === 36.3141326 ? 20 : 40 : 50);
+      if (clothingCase) {
+        payload.hourly.time.forEach((time,index) => {
+          const night = time >= `${params.get('start_date')}T18:00` && time <= `${params.get('end_date')}T09:00`;
+          payload.hourly.temperature_2m[index] = payload.hourly.apparent_temperature[index] = night ? clothingCase.night : clothingCase.day;
+          payload.hourly.wind_speed_10m[index] = clothingCase.wind ?? 0;
+          payload.hourly.precipitation_probability[index] = clothingCase.rain ?? 0;
+        });
+        payload.daily.wind_speed_10m_max = payload.daily.time.map(()=>clothingCase.wind ?? 0);
+        payload.daily.precipitation_probability_max = payload.daily.time.map(()=>clothingCase.rain ?? 0);
+        if (clothingCase.missing) { payload.hourly.apparent_temperature[12] = null; payload.hourly.temperature_2m[33] = null; }
+      }
       if (mode === 'partial') { payload.hourly.temperature_2m[33] = null; payload.hourly.relative_humidity_2m = []; }
       if (mode === 'none' || mode === 'reject') delete payload.hourly;
       await route.fulfill({ json: payload });
@@ -44,7 +55,9 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await page.locator('[data-hour-day]').last().click();
     assert.match(await page.locator('.hourly-table caption').textContent(), new RegExp(`${Number(trip.endDate.slice(5,7))}/${Number(trip.endDate.slice(8,10))}`));
     assert.match(await page.locator('.hourly-table tbody tr').nth(9).textContent(), /09:00.*5.*2.*20.*3.*70/);
-    assert.match(await page.locator('.equipment-advice').textContent(), /重ね着.*防寒着.*テント内の気温や寝袋の快適温度ではありません/);
+    assert.match(await page.locator('[data-clothing-period="day"]').textContent(), /長袖シャツ＋薄手ジャケット/);
+    assert.match(await page.locator('[data-clothing-period="night"]').textContent(), /厚手ダウン/);
+    assert.match(await page.locator('.equipment-advice').textContent(), /重ね着.*テント内の気温や寝袋の快適温度ではありません/);
     for (const width of [320,375,390,414,768,1280]) {
       await page.setViewportSize({ width, height: 844 });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector('#weather-details-dialog').scrollWidth <= document.querySelector('#weather-details-dialog').clientWidth), `${name} ${width}: horizontal overflow`);
@@ -73,6 +86,33 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     await card.locator('[data-remove]').click(); await ready(2); assert(!(await dialog.isVisible())); assert.equal(requests.length,3);
     await page.locator('#open-favorites').click(); await page.locator('#other-camps > summary').click(); await page.locator('[data-compare="fumotoppara"]').click(); await ready(3); await page.locator('#close-favorites').click();
     assert.equal(requests.length,4);
+    for (const scenario of [
+      {day:25,night:18,dayText:'半袖',nightText:'長袖シャツ＋薄手ジャケット'},
+      {day:20,night:10,dayText:'薄手の羽織り',nightText:'スウェット・フリース＋防風アウター'},
+      {day:15,night:5,dayText:'薄手ジャケット',nightText:'フリース＋薄手ダウン'},
+      {day:10,night:0,dayText:'防風アウター',nightText:'厚手ダウン'},
+      {day:25,night:18,wind:8,kind:'wind',extra:'焚き火'},
+      {day:25,night:18,rain:70,kind:'rain',extra:'交換する衣類・靴下'},
+      {day:20,night:5,kind:'range',extra:'日中と夜間で異なる防寒装備'},
+      {day:25,night:18,missing:true},
+    ]) {
+      clothingCase=scenario;const before=requests.length;
+      await page.locator('#refresh-weather').click();await ready(3);
+      await card.locator('[data-weather-details]').click();await dialog.waitFor();
+      assert.equal(await page.locator('.equipment-advice h4').count(),3);
+      if(scenario.dayText) assert((await page.locator('[data-clothing-period="day"]').textContent()).includes(scenario.dayText));
+      if(scenario.nightText) assert((await page.locator('[data-clothing-period="night"]').textContent()).includes(scenario.nightText));
+      if(scenario.kind) { assert.equal(await page.locator(`[data-advice-kind="${scenario.kind}"]`).count(),1);assert((await page.locator(`[data-advice-kind="${scenario.kind}"]`).textContent()).includes(scenario.extra)); }
+      if(scenario.missing) for(const phase of ['day','night']) assert.match(await page.locator(`[data-clothing-period="${phase}"] .clothing-recommendation`).textContent(),/不足.*判定できません/);
+      assert.equal(requests.length-before,3,'advice must not cause additional API requests');
+      assert.equal(await card.locator('.comfort-summary p').count(),3,'list card information must not increase');
+      await page.setViewportSize({width:320,height:844});
+      assert(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth));
+      await page.setViewportSize({width:390,height:844});
+      if(scenario.night===0) { await page.locator('#detail-advice-heading').scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/clothing-${name}-390.png`}); }
+      await page.locator('#close-weather-details').click();
+    }
+    clothingCase=null;
     for (const missing of ['partial','none','reject']) {
       mode=missing; const before=requests.length;
       await page.locator('#refresh-weather').click(); await ready(3);
@@ -96,7 +136,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     assert.equal(await page.locator('[data-hour-day]').last().evaluate(button=>button===document.activeElement),true);
     await page.keyboard.press('Escape');
     assert.deepEqual(errors,[]);
-    console.log(`PASS ${name}: hourly metrics/chart/table; JST independent of browser time zone; 6 widths; card/keyboard/backdrop/close and scroll restore; independent favorites/location/removal; cached details; missing data/400 fallback; daily rank unchanged; 1/2/3-day trips and persistence`);
+    console.log(`PASS ${name}: hourly metrics/chart/table; JST independent of browser time zone; 6 widths; card/keyboard/backdrop/close and scroll restore; independent favorites/location/removal; cached details; 8 clothing scenarios/3 sections/no added API requests or card fields; missing data/400 fallback; daily rank unchanged; 1/2/3-day trips and persistence`);
     await context.close();
   } finally { await browser.close(); }
 }

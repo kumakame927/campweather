@@ -34,6 +34,9 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
     const values=await page.locator('.detail-metrics dd').allTextContents();
     assert.equal(parseFloat(values[0]),Number(number(high)));assert.equal(parseFloat(values[1]),Number(number(low)));assert.equal(parseFloat(values[2]),Number(number(felt)));assert.equal(parseFloat(values[3]),Number(number(high-low)));
     assert.equal(await page.locator('.hourly-table tbody tr').count(),24);
+    assert.equal(await page.locator('.equipment-advice h4').count(),3);
+    assert.equal(await page.locator('.clothing-recommendation strong').count(),2);
+    assert.match(await page.locator('.equipment-advice').textContent(),/暫定基準.*個人差/);
     await page.locator('[data-hour-day]').last().click();
     const firstRow=await page.locator('.hourly-table tbody tr').first().locator('td').allTextContents();
     assert.equal(parseFloat(firstRow[1]),raw.apparent_temperature[24]);assert.equal(parseFloat(firstRow[4]),raw.relative_humidity_2m[24]);

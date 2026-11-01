@@ -79,3 +79,4 @@
 .favorite-actions .button{min-width:0;white-space:normal;padding:8px 6px}
 
 .detail-metrics>div:last-child:nth-child(odd){grid-column:1/-1}
+.equipment-advice .clothing-block{margin-top:16px;min-width:0}.equipment-advice .clothing-block+.clothing-block{border-top:1px solid var(--line);padding-top:16px}.equipment-advice h4{font-size:13px;line-height:1.8;margin:0 0 6px}.clothing-reading{font-size:11px;line-height:1.8;color:var(--muted);margin:5px 0;overflow-wrap:anywhere}.clothing-recommendation{font-size:12px;line-height:1.9;margin:7px 0;overflow-wrap:anywhere}.clothing-recommendation strong{font-weight:600;margin-right:.3em}

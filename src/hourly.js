@@ -36,10 +36,14 @@ function completeValues(byTime, times, field) {
   const values = times.map(time => byTime.get(time)?.[field]);
   return values.length && values.every(numeric) ? values : null;
 }
-export function comfortMetrics(hourly, period) {
+export function comfortWindows(period) {
   const dates = periodDates(period), start = dates[0], final = dates.at(-1), overnight = dates.length > 1;
   const daytime = hourTimes([start]).slice(12, 17);
   const night = overnight ? [...hourTimes([start]).slice(18), ...hourTimes([addDays(start, 1)]).slice(0, 10)] : [];
+  return { start, final, overnight, daytime, night };
+}
+export function comfortMetrics(hourly, period) {
+  const { start, final, overnight, daytime, night } = comfortWindows(period);
   const byTime = new Map((hourly?.hours ?? []).map(hour => [hour.time, hour]));
   const high = completeValues(byTime, daytime, 'temperature');
   const low = completeValues(byTime, night, 'temperature');
@@ -55,15 +59,4 @@ export function comfortComment(metrics) {
   if (metrics.minApparent !== null && metrics.minApparent < 10 || metrics.nightLow !== null && metrics.nightLow < 10) return '朝晩は冷え込みます';
   if (metrics.range !== null && metrics.range >= 10) return '昼夜の寒暖差が大きめです';
   return metrics.dayHigh !== null ? '服装・装備の目安を詳細で確認' : '時間別予報が不足しています';
-}
-export function equipmentAdvice(metrics, maxWind) {
-  const advice = [];
-  if (metrics.range !== null && metrics.range >= 10) advice.push('昼夜の寒暖差が大きいため、脱ぎ着しやすい重ね着がおすすめです。');
-  if (metrics.minApparent !== null && metrics.minApparent <= 0) advice.push('朝晩は体感温度が0℃以下の予報です。十分な防寒着を準備しましょう。');
-  else if (metrics.minApparent !== null && metrics.minApparent < 10 || metrics.nightLow !== null && metrics.nightLow < 10) advice.push('朝晩は冷え込むため、防寒着を準備しましょう。');
-  if (metrics.dayHigh !== null && metrics.dayHigh >= 30) advice.push('日中は暑くなる予報です。日よけと水分補給の準備をしましょう。');
-  if (numeric(maxWind) && maxWind >= 8) advice.push('風が強い予報です。防風着と、テント・タープの固定や設営場所を確認しましょう。');
-  if (!advice.length) advice.push('目立った条件に該当しない場合も、時間別予報を見て服装・装備を調整してください。');
-  if (metrics.dayHigh === null || metrics.overnight && (metrics.nightLow === null || metrics.minApparent === null)) advice.push('必要な時間別データが不足しているため、寒さや寒暖差の判断に使えない項目があります。');
-  return advice;
 }
