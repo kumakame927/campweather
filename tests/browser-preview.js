@@ -111,7 +111,8 @@ try {
     assert(sunday.every(Number.isFinite));
     assert.deepEqual(sunday, [...sunday].sort((a, b) => a - b));
     assert(await page.locator('.recommendation-badge').count() >= 1);
-    assert((await page.locator('.day dl').allTextContents()).every(text => text.includes('℃') && text.includes('m/s')));
+    assert((await page.locator('.day dl').allTextContents()).every(text => text.includes('m/s')));
+    assert((await page.locator('.comfort-summary').allTextContents()).every(text => text.includes('℃')));
     if (live) {
       assert(responses.length >= 6);
       for (const response of await Promise.all(responses)) {
