@@ -1,10 +1,14 @@
 # 体感温度・寒暖差のiPhone確認用Preview
 
-## 対象と制約
+## 本番公開への移行
 
-対象ブランチは `feat/hourly-camp-details`。既存のVercelプロジェクト `campweather` とGitHub連携を再利用する。mainへのマージ、Productionの作成/昇格、公開URLやドメインの変更、新規サービス登録、課金設定、ライブラリ追加は行わない。
+iPhone SafariでのPreview実機確認が完了し、利用者からmain反映・本番公開の承認を受けた。公開準備として、Preview専用の `ignoreCommand` を削除し、既存mainと同じVercel設定へ戻す。URL・ドメイン・環境変数・認証設定は変更しない。以下はPreview段階の手順と制約の記録。
 
-`vercel.json` の `ignoreCommand` は `VERCEL_ENV=preview` のときだけ終了コード1（ビルド続行）を返す。それ以外や変数未設定では0（ビルド中止）を返す。この設定は作業ブランチだけに置き、mainへマージしない。既存mainのデプロイ設定には適用されない。中止されたデプロイもVercel側のデプロイ枠を消費する場合がある。
+## 実機確認時の対象と制約
+
+対象ブランチは `feat/hourly-camp-details`。既存のVercelプロジェクト `campweather` とGitHub連携を再利用した。Preview段階ではmainへのマージ、Productionの作成/昇格、公開URLやドメインの変更、新規サービス登録、課金設定、ライブラリ追加は行わなかった。
+
+Preview確認時の `ignoreCommand` は `VERCEL_ENV=preview` のときだけ終了コード1（ビルド続行）を返し、それ以外や変数未設定では0（ビルド中止）を返していた。この設定は作業ブランチだけに置き、本番公開前に削除した。既存mainのデプロイ設定には適用していない。
 
 ## 承認後に行う操作
 

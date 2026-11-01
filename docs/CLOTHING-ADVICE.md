@@ -73,4 +73,4 @@
 - `docs/HOURLY-DETAILS.md`：判定説明の更新
 - `docs/CLOTHING-ADVICE.md`：本書（新規）
 
-作業ブランチは `feat/hourly-camp-details` を維持する。mainは変更せず、pushやVercel Previewの更新は事前承認後に行う。
+作業ブランチは `feat/hourly-camp-details`。Previewのpush・更新は事前承認を受けて実施し、利用者のiPhone Safari実機確認と本番公開の承認を経てmainへ反映する。
