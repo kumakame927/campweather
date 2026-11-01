@@ -1,10 +1,11 @@
+import { renderComfortSummary, initWeatherDetails } from './weather-details.js';
 import { COMPARISON_KEY, FAVORITES_KEY, restoreLibrary, persistLibrary, migrateSelections, setMembership, forgetCamp } from './library.js';
 import { initFavorites } from './favorites.js';
 import { initPwa } from './pwa.js';
 import { initBackup } from './backup.js';
 import { initRegistration } from './registration.js';
 import { initJma, renderJma, japanTimestamp } from './jma.js';
-import { forecastDays, forecastUrl, parseForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol, fetchJson } from './weather.js';
+import { forecastDays, fetchForecast, comparable, compareForecasts, sameConditions, weatherLabel, weatherSymbol } from './weather.js';
 import { STORAGE_KEY, LEGACY_STORAGE_KEY, loadLocal, persist, restoreCamps } from './locations.js';
 import { usesSameOrigin } from './api.js';
 import { TRIP_STORAGE_KEY, restoreTrip, makeTrip, tripRangeError, dateLabel, japanToday } from './schedule.js';
@@ -12,6 +13,7 @@ import { TRIP_STORAGE_KEY, restoreTrip, makeTrip, tripRangeError, dateLabel, jap
 let library = restoreLibrary(loadLocal(STORAGE_KEY, null) ?? loadLocal(LEGACY_STORAGE_KEY, null), loadLocal(COMPARISON_KEY, null), loadLocal(FAVORITES_KEY, null));
 let camps = library.camps.filter(camp => library.comparisonIds.includes(camp.id));
 let favoritesView;
+let weatherDetails;
 let forecasts = new Map();
 let trip = restoreTrip(loadLocal(TRIP_STORAGE_KEY, null));
 let rangeError = tripRangeError(trip);
@@ -61,7 +63,7 @@ function permanentlyForget(id) {
 }
 function dayColumn(day, date, index) {
   const final = index === trip.dates.length - 1;
-  return `<section class="day ${final ? 'sunday' : ''}" aria-label="${dateLabel(date)}の予報"><h4>${dateLabel(date)}<small class="day-role">${trip.nights === 0 ? '日帰り' : final ? '撤収日' : index === 0 ? '開始日' : '滞在日'}</small></h4><p class="weather"><span class="weather-symbol" aria-hidden="true">${weatherSymbol(day?.code)}</span><span>${weatherLabel(day?.code)}</span></p><dl><div class="rain"><dt>降水確率 <small>最大</small></dt><dd>${number(day?.rain)}<small> %</small></dd></div><div><dt>最高 / 最低</dt><dd>${number(day?.high)} / ${number(day?.low)}<small> ℃</small></dd></div><div><dt>最大風速</dt><dd>${number(day?.wind)}<small> m/s</small></dd></div></dl></section>`;
+  return `<section class="day ${final ? 'sunday' : ''}" aria-label="${dateLabel(date)}の予報"><h4>${dateLabel(date)}<small class="day-role">${trip.nights === 0 ? '日帰り' : final ? '撤収日' : index === 0 ? '開始日' : '滞在日'}</small></h4><p class="weather"><span class="weather-symbol" aria-hidden="true">${weatherSymbol(day?.code)}</span><span>${weatherLabel(day?.code)}</span></p><dl><div class="rain"><dt>降水確率 <small>最大</small></dt><dd>${number(day?.rain)}<small> %</small></dd></div><div><dt>最大風速</dt><dd>${number(day?.wind)}<small> m/s</small></dd></div></dl></section>`;
 }
 function rankedCamps() {
   return camps.map(camp => ({ ...camp, forecast: forecasts.get(camp.id)?.data })).sort(compareForecasts);
@@ -105,8 +107,9 @@ function render() {
     else if (!result || result.state === 'loading') message = '予報を取得しています…';
     else if (result.state === 'error') message = `予報を取得できませんでした。${result.error}`;
     else if (!isComplete) message = '予報の一部を取得できませんでした。比較対象外です。';
-    return `<article class="camp-card ${recommended ? 'recommended' : ''}" data-camp-id="${escapeHtml(camp.id)}"><div class="card-heading"><h3>${escapeHtml(camp.name)}</h3>${recommended ? '<span class="recommendation-badge">おすすめ候補</span>' : ''}</div>${camp.location ? `<details class="location-details"><summary>${escapeHtml(camp.location.address)}</summary>${locationDetails(camp.location)}</details>` : '<p class="unconfirmed-label">場所を確認すると天気を表示できます</p>'}<p class="forecast-source">Open-Meteo（主予報）</p><div class="forecast-days ${trip.nights === 2 ? 'three-days' : ''}" style="--days:${trip.dates.length}">${trip.dates.map((date, index) => dayColumn(forecastDays(camp.forecast)[index], date, index)).join('')}</div>${message ? `<p class="card-status ${result?.state === 'error' ? 'error' : ''}" role="status">${escapeHtml(message)}</p>${result?.debug ? `<details class="api-debug"><summary>通信エラーの詳細</summary><pre>${escapeHtml(result.debug)}</pre></details>` : ''}` : ''}${renderJma(camp, trip, openJma.has(camp.id))}<div class="card-footer"><span>${result?.receivedAt && result.state === 'ready' ? `Open-Meteo データ取得日時：${japanTimestamp(result.receivedAt)}` : '予報未取得'}</span><button class="text-button location-button" data-location="${escapeHtml(camp.id)}" type="button">${camp.location ? '場所を変更' : '場所を確認'}</button><button class="text-button" data-favorite="${escapeHtml(camp.id)}" type="button" aria-pressed="${library.favoriteIds.includes(camp.id)}" aria-label="${escapeHtml(camp.name)}のお気に入りを${library.favoriteIds.includes(camp.id) ? '解除' : '登録'}">${library.favoriteIds.includes(camp.id) ? '★ お気に入り' : '☆ お気に入り'}</button><button class="text-button" data-remove="${escapeHtml(camp.id)}" type="button" aria-label="${escapeHtml(camp.name)}を比較から外す">比較から外す</button></div></article>`;
+    return `<article class="camp-card ${recommended ? 'recommended' : ''}" data-camp-id="${escapeHtml(camp.id)}"><div class="card-heading"><h3><button class="card-details-title" data-weather-details="${escapeHtml(camp.id)}" type="button" aria-haspopup="dialog" aria-label="${escapeHtml(camp.name)}の天気の詳細を開く"><span>${escapeHtml(camp.name)}</span><small>詳細 ›</small></button></h3>${recommended ? '<span class="recommendation-badge">おすすめ候補</span>' : ''}</div>${camp.location ? `<details class="location-details"><summary>${escapeHtml(camp.location.address)}</summary>${locationDetails(camp.location)}</details>` : '<p class="unconfirmed-label">場所を確認すると天気を表示できます</p>'}<p class="forecast-source">Open-Meteo（主予報）</p><div class="forecast-days ${trip.nights === 2 ? 'three-days' : ''}" style="--days:${trip.dates.length}">${trip.dates.map((date, index) => dayColumn(forecastDays(camp.forecast)[index], date, index)).join('')}</div>${renderComfortSummary(camp.forecast, trip)}${message ? `<p class="card-status ${result?.state === 'error' ? 'error' : ''}" role="status">${escapeHtml(message)}</p>${result?.debug ? `<details class="api-debug"><summary>通信エラーの詳細</summary><pre>${escapeHtml(result.debug)}</pre></details>` : ''}` : ''}${renderJma(camp, trip, openJma.has(camp.id))}<div class="card-footer"><span>${result?.receivedAt && result.state === 'ready' ? `Open-Meteo データ取得日時：${japanTimestamp(result.receivedAt)}` : '予報未取得'}</span><button class="text-button location-button" data-location="${escapeHtml(camp.id)}" type="button">${camp.location ? '場所を変更' : '場所を確認'}</button><button class="text-button" data-favorite="${escapeHtml(camp.id)}" type="button" aria-pressed="${library.favoriteIds.includes(camp.id)}" aria-label="${escapeHtml(camp.name)}のお気に入りを${library.favoriteIds.includes(camp.id) ? '解除' : '登録'}">${library.favoriteIds.includes(camp.id) ? '★ お気に入り' : '☆ お気に入り'}</button><button class="text-button" data-remove="${escapeHtml(camp.id)}" type="button" aria-label="${escapeHtml(camp.name)}を比較から外す">比較から外す</button></div></article>`;
   }).join('');
+  weatherDetails?.sync();
 }
 async function refreshWeather({ reuse = false } = {}) {
   refreshController?.abort();
@@ -131,8 +134,7 @@ async function refreshWeather({ reuse = false } = {}) {
     while (pending.length && !signal.aborted) {
       const camp = pending.shift();
       try {
-        const payload = await fetchJson(forecastUrl(camp, requestedTrip), { signal });
-        const data = parseForecast(payload, requestedTrip);
+        const data = await fetchForecast(camp, requestedTrip, { signal });
         if (generation !== requestGeneration) return;
         forecasts.set(camp.id, { state: 'ready', data, receivedAt: Date.now(), signature: signature(camp) });
       } catch (error) {
@@ -164,6 +166,12 @@ $('#empty-add-camp').addEventListener('click', () => openLocation());
 $('#add-camp').addEventListener('click', () => openLocation());
 $('#refresh-weather').addEventListener('click', refreshWeather);
 grid.addEventListener('click', event => {
+  const details = event.target.closest('[data-weather-details]');
+  if (details) { weatherDetails.open(details.dataset.weatherDetails); return; }
+  if (!event.target.closest('button,a,input,select,textarea,summary,details,label') && !window.getSelection()?.toString()) {
+    const card = event.target.closest('[data-camp-id]');
+    if (card) weatherDetails.open(card.dataset.campId);
+  }
   const button = event.target.closest('[data-location]');
   if (button) openLocation(button.dataset.location);
   const removal = event.target.closest('[data-remove]');
@@ -195,6 +203,7 @@ $('#trip-start').addEventListener('change', dateChanged);
 $('#trip-nights').addEventListener('change', dateChanged);
 $('#reset-weekend').addEventListener('click', () => changeTrip(restoreTrip(null)));
 $('#trip-start').min = japanToday();
+weatherDetails = initWeatherDetails({ getDetail: id => ({ camp: camps.find(camp => camp.id === id), result: forecasts.get(id), trip, rangeError }) });
 favoritesView = initFavorites({ getState: () => library, setFavorite, setCompared, forget: permanentlyForget, locationDetails });
 initPwa({ onReconnect: () => { if (!refreshing) refreshWeather(); } });
 initBackup({ getCamps: () => library.camps, getTrip: () => trip, getComparisonIds: () => library.comparisonIds, getFavoriteIds: () => library.favoriteIds });

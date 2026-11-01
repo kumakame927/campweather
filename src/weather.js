@@ -1,4 +1,5 @@
 import { requestTarget, ApiError } from './api.js';
+import { HOURLY_FIELDS, parseHourly } from './hourly.js';
 export const FORECAST_ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
 export const DAILY_FIELDS = ['weather_code', 'precipitation_probability_max', 'temperature_2m_max', 'temperature_2m_min', 'wind_speed_10m_max'];
 
@@ -9,12 +10,13 @@ export function formatDate(iso) {
   const [, month, day] = iso.split('-').map(Number);
   return `${month}/${day}`;
 }
-export function forecastUrl(camp, weekend) {
+export function forecastUrl(camp, weekend, { hourly = true } = {}) {
   const url = new URL(FORECAST_ENDPOINT);
   url.search = new URLSearchParams({
     latitude: String(camp.location.latitude), longitude: String(camp.location.longitude),
     daily: DAILY_FIELDS.join(','), timezone: 'Asia/Tokyo', wind_speed_unit: 'ms',
     temperature_unit: 'celsius', start_date: periodDates(weekend)[0], end_date: periodDates(weekend).at(-1),
+    ...(hourly ? { hourly: HOURLY_FIELDS.join(',') } : {}),
   }).toString();
   return url;
 }
@@ -44,9 +46,19 @@ export function parseForecast(payload, weekend) {
   };
   const days = periodDates(weekend).map(read);
   // 既存の2日分インターフェースも維持し、表示と順位は days を使用する。
-  const result = { days, saturday: days[0], sunday: days.at(-1) };
+  const result = { days, saturday: days[0], sunday: days.at(-1), hourly: parseHourly(payload, weekend) };
   if (days.every(day => !day)) throw new Error('対象の日程の予報がありません。');
   return result;
+}
+export async function fetchForecast(camp, period, { signal, fetcher = fetchJson } = {}) {
+  let payload;
+  try { payload = await fetcher(forecastUrl(camp, period), { signal }); }
+  catch (error) {
+    // Retry only a rejected combined request, never rate limits/network errors.
+    if (signal?.aborted || error.status !== 400) throw error;
+    payload = await fetcher(forecastUrl(camp, period, { hourly: false }), { signal });
+  }
+  return parseForecast(payload, period);
 }
 export function forecastDays(forecast) {
   return forecast?.days ?? [forecast?.saturday, forecast?.sunday];
